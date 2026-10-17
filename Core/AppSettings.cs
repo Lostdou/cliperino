@@ -28,6 +28,7 @@ public sealed class AppSettings
     public int AudioOffsetMs { get; set; }
     public bool StartWithWindows { get; set; }
     public bool StartReplayOnLaunch { get; set; } = true;
+    public bool CheckForUpdates { get; set; } = true;
 
     public string? CachedPipelineId { get; set; }
     public string? PipelineFingerprint { get; set; }

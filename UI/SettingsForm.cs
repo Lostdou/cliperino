@@ -31,6 +31,7 @@ sealed class SettingsForm : Form
     readonly NumericUpDown offset = Number(-2000, 2000, 10);
     readonly CheckBox startWithWindows = Check("Iniciar con Windows");
     readonly CheckBox startOnLaunch = Check("Activar la repetición al abrir Cliperino");
+    readonly CheckBox checkUpdates = Check("Buscar actualizaciones al iniciar");
 
     public AppSettings Result => s;
     public bool ForceRedetect { get; private set; }
@@ -131,6 +132,7 @@ sealed class SettingsForm : Form
         offset.Value = s.AudioOffsetMs;
         startWithWindows.Checked = s.StartWithWindows;
         startOnLaunch.Checked = s.StartReplayOnLaunch;
+        checkUpdates.Checked = s.CheckForUpdates;
 
         var grid = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Fill };
         void Row(string label, params Control[] controls)
@@ -154,6 +156,7 @@ sealed class SettingsForm : Form
         Row("Desfase de audio (ms):", offset, Hint("Subilo si el sonido llega antes que la imagen"));
         Row("Inicio:", startWithWindows);
         Row("", startOnLaunch);
+        Row("", checkUpdates);
 
         var save = new Button { Text = "Guardar", AutoSize = true };
         save.Click += OnSave;
@@ -198,6 +201,7 @@ sealed class SettingsForm : Form
         s.AudioOffsetMs = (int)offset.Value;
         s.StartWithWindows = startWithWindows.Checked;
         s.StartReplayOnLaunch = startOnLaunch.Checked;
+        s.CheckForUpdates = checkUpdates.Checked;
         DialogResult = DialogResult.OK;
     }
 

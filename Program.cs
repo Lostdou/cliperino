@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Cliperino.Capture;
 using Cliperino.UI;
+using Cliperino.Update;
 
 namespace Cliperino;
 
@@ -15,6 +16,7 @@ static class Program
             return PipelineBuilder.RunDiagnosticsAsync(Console.Out).GetAwaiter().GetResult();
         }
 
+        Updater.FinishPendingUpdate(args);
         using var mutex = new Mutex(true, @"Local\Cliperino.SingleInstance", out var isFirstInstance);
         if (!isFirstInstance)
         {

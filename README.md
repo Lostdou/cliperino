@@ -24,6 +24,17 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
   ```
 - **ffmpeg** no va dentro del ejecutable: la app ofrece descargarlo la primera vez. Si preferís distribuirlo junto al `.exe`, la app lo encuentra igual, pero el build *essentials* es GPL y hay que incluir su licencia. 
 
+### Publicar un release
+1. Subir `<Version>` en `Cliperino.csproj`, por ejemplo `0.4.0`. El actualizador compara esa versión con el tag del release.
+2. Ejecutar `dotnet publish`.
+3. Crear el release en GitHub con el tag de esa versión (`0.4` o `v0.4.0`) y adjuntar `publish\Cliperino.exe` con ese nombre exacto.
+
+## Actualizaciones
+- **Cuándo busca:** 30 s después de abrirse y luego cada 6 h, consulta el último release de [Lostdou/cliperino](https://github.com/Lostdou/cliperino/releases). También se puede buscar a mano desde **Buscar actualizaciones** en la bandeja.
+- **Qué hace si hay una versión nueva:** muestra una notificación. Al hacer clic pide confirmación, descarga el `Cliperino.exe` nuevo, reemplaza al actual (el viejo queda como `.old` y se borra en el siguiente inicio) y se reinicia.
+- **Nunca se reinicia solo:** la actualización se aplica únicamente cuando la aceptás, así no corta una partida.
+- **Requisitos:** funciona solo con el `.exe` publicado, en una carpeta con permiso de escritura. Se desactiva en Ajustes con "Buscar actualizaciones al iniciar".
+
 ## Uso
 - El ícono de la bandeja cambia de color según el estado: 🔴 grabando, ⚪ desactivado, 🟠 detectando o guardando.
 - **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`. Al hacer clic en la notificación se abre el archivo en el Explorador.
@@ -86,7 +97,8 @@ Lista las GPUs y los monitores, prueba cada pipeline y deja el detalle en `%LOCA
 | `Ffmpeg/` | Búsqueda/descarga de ffmpeg, procesos y Job Object |
 | `Capture/` | Detección de GPU, pipelines, buffer de video y armado de clips |
 | `Audio/` | Captura WASAPI y buffer circular |
-| `UI/` | Bandeja, atajo global y ventana de ajustes |
+| `UI/` | Bandeja, atajo global, ajustes, vista previa y editor |
+| `Update/` | Actualización desde los releases de GitHub |
 
 ## Cómo funciona
 - **Video:** ffmpeg graba segmentos MPEG-TS de 2 s en `%LOCALAPPDATA%\Cliperino\buffer`. Cliperino borra los que quedan fuera de la ventana de replay.

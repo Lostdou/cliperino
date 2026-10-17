@@ -41,34 +41,7 @@ public static class FfmpegLocator
         Directory.CreateDirectory(AppPaths.FfmpegDir);
         var zipPath = Path.Combine(AppPaths.FfmpegDir, "ffmpeg.zip");
 
-        try
-        {
-            using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-            using var response = await http.GetAsync(DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellation);
-            response.EnsureSuccessStatusCode();
-            var total = response.Content.Headers.ContentLength;
-            await using var source = await response.Content.ReadAsStreamAsync(cancellation);
-            await using var target = File.Create(zipPath);
-            var buffer = new byte[1 << 16];
-            long done = 0;
-            int read, lastMark = -1;
-            while ((read = await source.ReadAsync(buffer, cancellation)) > 0)
-            {
-                await target.WriteAsync(buffer.AsMemory(0, read), cancellation);
-                done += read;
-                int mark = total > 0 ? (int)(done * 100 / total.Value) : (int)(done >> 20);
-                if (mark == lastMark) continue;
-                lastMark = mark;
-                progress.Report(total > 0
-                    ? ($"Descargando ffmpeg… {done >> 20} de {total.Value >> 20} MB", mark)
-                    : ($"Descargando ffmpeg… {mark} MB", null));
-            }
-        }
-        catch
-        {
-            File.Delete(zipPath);
-            throw;
-        }
+        await Downloader.DownloadAsync(DownloadUrl, zipPath, "Descargando ffmpeg", progress, cancellation);
 
         progress.Report(("Descomprimiendo ffmpeg…", 100));
         using (var zip = ZipFile.OpenRead(zipPath))

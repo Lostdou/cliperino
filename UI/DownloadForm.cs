@@ -8,9 +8,9 @@ sealed class DownloadForm : Form
 
     public CancellationToken Cancellation => cancellation.Token;
 
-    public DownloadForm()
+    public DownloadForm(string title)
     {
-        Text = "Cliperino – Descargando ffmpeg";
+        Text = title;
         Font = SystemFonts.MessageBoxFont ?? Font;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;

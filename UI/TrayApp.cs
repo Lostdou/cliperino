@@ -2,18 +2,23 @@ using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Media;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using NAudio.CoreAudioApi;
 using Cliperino.Audio;
 using Cliperino.Capture;
 using Cliperino.Core;
 using Cliperino.Ffmpeg;
+using Cliperino.Update;
 
 namespace Cliperino.UI;
 
 sealed class TrayApp : ApplicationContext
 {
     readonly NotifyIcon tray;
-    readonly ToolStripMenuItem statusItem, pipelineItem, toggleItem, saveItem;
+    static readonly TimeSpan FirstUpdateCheck = TimeSpan.FromSeconds(30);
+    static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
+
+    readonly ToolStripMenuItem statusItem, pipelineItem, toggleItem, saveItem, updateItem;
     readonly HotkeyWindow hotkey = new();
     readonly Icon idleIcon = MakeIcon(Color.Gray), recordingIcon = MakeIcon(Color.Red), busyIcon = MakeIcon(Color.Orange);
     readonly SynchronizationContext ui;
@@ -26,6 +31,10 @@ sealed class TrayApp : ApplicationContext
     GameWindow? captureWindow;
     IntPtr failedWindow;
     readonly System.Windows.Forms.Timer gameWatcher = new() { Interval = 3000 };
+    readonly System.Windows.Forms.Timer updateTimer = new();
+    UpdateInfo? availableUpdate;
+    Version? notifiedVersion;
+    bool updating;
     SettingsForm? settingsForm;
     PreviewForm? previewForm;
     bool starting, saving, retriedAfterFailure;
@@ -39,6 +48,7 @@ sealed class TrayApp : ApplicationContext
         pipelineItem = new ToolStripMenuItem("") { Enabled = false, Visible = false };
         toggleItem = new ToolStripMenuItem("Activar repetición instantánea", null, async (_, _) => await ToggleAsync());
         saveItem = new ToolStripMenuItem("Guardar clip", null, async (_, _) => await SaveClipAsync()) { Enabled = false };
+        updateItem = new ToolStripMenuItem("Buscar actualizaciones", null, async (_, _) => await OnUpdateItemAsync());
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
@@ -48,6 +58,7 @@ sealed class TrayApp : ApplicationContext
             new ToolStripMenuItem("Editar clip…", null, (_, _) => PickClipToEdit()),
             new ToolStripMenuItem("Abrir carpeta de clips", null, (_, _) => OpenClipsFolder()),
             new ToolStripMenuItem("Ajustes…", null, (_, _) => ShowSettings()),
+            updateItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("Salir", null, (_, _) => ExitApp()),
         });
@@ -61,6 +72,7 @@ sealed class TrayApp : ApplicationContext
         RegisterHotkey();
         gameWatcher.Tick += (_, _) => WatchGame();
         gameWatcher.Start();
+        updateTimer.Tick += async (_, _) => await OnUpdateTimerAsync();
         _ = InitializeAsync();
     }
 
@@ -92,6 +104,8 @@ sealed class TrayApp : ApplicationContext
 
             if (settings.StartReplayOnLaunch) await StartReplayAsync(force: false);
             else SetStatus("Repetición desactivada", idleIcon);
+            if (Updater.JustUpdated) Notify($"Cliperino se actualizó a la versión {Updater.CurrentVersion.ToString(3)}.", ToolTipIcon.Info);
+            StartUpdateChecks();
         }
         catch (Exception ex)
         {
@@ -103,7 +117,7 @@ sealed class TrayApp : ApplicationContext
 
     async Task<string?> DownloadFfmpegAsync()
     {
-        using var window = new DownloadForm();
+        using var window = new DownloadForm("Cliperino – Descargando ffmpeg");
         var progress = new Progress<(string Text, int? Percent)>(p =>
         {
             window.Report(p.Text, p.Percent);
@@ -313,6 +327,7 @@ sealed class TrayApp : ApplicationContext
             settings = updated;
             settings.Save();
             settings.ApplyStartWithWindows();
+            StartUpdateChecks();
             if (restart)
             {
                 StopReplay();
@@ -323,6 +338,97 @@ sealed class TrayApp : ApplicationContext
         {
             settingsForm = null;
             RegisterHotkey();
+        }
+    }
+
+    void StartUpdateChecks()
+    {
+        updateTimer.Stop();
+        if (!settings.CheckForUpdates || !Updater.CanSelfUpdate) return;
+        updateTimer.Interval = (int)FirstUpdateCheck.TotalMilliseconds;
+        updateTimer.Start();
+    }
+
+    async Task OnUpdateTimerAsync()
+    {
+        updateTimer.Interval = (int)UpdateCheckInterval.TotalMilliseconds;
+        await CheckForUpdatesAsync(manual: false);
+    }
+
+    async Task OnUpdateItemAsync()
+    {
+        if (availableUpdate != null) await ApplyUpdateAsync();
+        else await CheckForUpdatesAsync(manual: true);
+    }
+
+    async Task CheckForUpdatesAsync(bool manual)
+    {
+        if (!Updater.CanSelfUpdate)
+        {
+            if (manual) Notify("Las actualizaciones solo funcionan con el Cliperino.exe publicado.", ToolTipIcon.Info);
+            return;
+        }
+        try
+        {
+            availableUpdate = await Updater.CheckAsync(Updater.CurrentVersion);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            Log.Write($"No se pudo buscar actualizaciones: {ex.Message}");
+            if (manual) Notify("No se pudo buscar actualizaciones. Revisá la conexión.", ToolTipIcon.Warning);
+            return;
+        }
+
+        updateItem.Text = availableUpdate != null ? $"Actualizar a {availableUpdate.Tag}…" : "Buscar actualizaciones";
+        if (availableUpdate != null && (manual || availableUpdate.Version != notifiedVersion))
+        {
+            notifiedVersion = availableUpdate.Version;
+            Notify($"Hay una versión nueva de Cliperino ({availableUpdate.Tag}). Clic para actualizar.", ToolTipIcon.Info, () => _ = ApplyUpdateAsync());
+        }
+        else if (availableUpdate == null && manual)
+        {
+            Notify($"Cliperino está actualizado (versión {Updater.CurrentVersion.ToString(3)}).", ToolTipIcon.Info);
+        }
+    }
+
+    async Task ApplyUpdateAsync()
+    {
+        var update = availableUpdate;
+        if (update == null || updating) return;
+        if (saving)
+        {
+            Notify("Esperá a que termine de guardarse el clip.", ToolTipIcon.Info);
+            return;
+        }
+        var answer = MessageBox.Show(
+            $"¿Actualizar Cliperino a la versión {update.Tag}?\n\nLa app se reinicia y se pierde lo que haya en el buffer de la repetición.",
+            "Cliperino", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (answer != DialogResult.Yes) return;
+
+        updating = true;
+        using var window = new DownloadForm($"Cliperino – Actualizando a {update.Tag}");
+        var progress = new Progress<(string Text, int? Percent)>(p => window.Report(p.Text, p.Percent));
+        window.Show();
+        try
+        {
+            await Updater.InstallAndRestartAsync(update, progress, window.Cancellation);
+            Log.Write($"Actualizando a {update.Tag}.");
+            ExitApp();
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Write("Actualización cancelada.");
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"No se pudo actualizar: {ex}");
+            MessageBox.Show($"No se pudo actualizar: {ex.Message}\n\nPodés descargar la versión nueva desde {update.PageUrl}",
+                "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            updating = false;
+            window.Close();
         }
     }
 
@@ -383,6 +489,7 @@ sealed class TrayApp : ApplicationContext
     void ExitApp()
     {
         gameWatcher.Dispose();
+        updateTimer.Dispose();
         previewForm?.Close();
         StopReplay();
         hotkey.Dispose();
