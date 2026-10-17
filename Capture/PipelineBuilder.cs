@@ -68,18 +68,11 @@ public static class PipelineBuilder
                 _ => ",hwdownload,format=bgra,format=nv12",
             };
 
-            var source = window != IntPtr.Zero
-                ? $"gfxcapture=hwnd={window}:max_framerate={fps}:width={monitor.Bounds.Width}:height={monitor.Bounds.Height}:resize_mode=scale_aspect,fps={fps}"
-                : $"ddagrab=output_idx={monitor.OutputIndex}:framerate={fps}";
-
-            input = $"-init_hw_device d3d11va=cap:{monitor.Adapter.Index} -filter_hw_device cap " +
-                    $"-filter_complex \"{source}{conversion}[v]\" -map \"[v]\"";
+            input = GpuInput(monitor, GpuSource(monitor, window, fps, monitor.Bounds.Size) + conversion);
         }
         else
         {
-            var area = monitor == null ? "" :
-                $"-offset_x {monitor.Bounds.X} -offset_y {monitor.Bounds.Y} -video_size {monitor.Bounds.Width}x{monitor.Bounds.Height} ";
-            input = $"-f gdigrab -framerate {fps} -draw_mouse 1 {area}-i desktop -vf format=yuv420p";
+            input = GdiInput(monitor, fps, "format=yuv420p");
         }
 
         var encoderArgs = encoder switch
@@ -91,6 +84,25 @@ public static class PipelineBuilder
         };
         
         return $"{input} {encoderArgs} -g {fps} -b:v {bitrateMbps}M -maxrate {bitrateMbps}M -bufsize {bitrateMbps * 2}M";
+    }
+
+    public static string PreviewInput(MonitorInfo monitor, IntPtr window, bool ddagrab, int fps, Size size, string filter) =>
+        window != IntPtr.Zero || ddagrab
+            ? GpuInput(monitor, $"{GpuSource(monitor, window, fps, size)},hwdownload,format=bgra,{filter}")
+            : GdiInput(monitor, fps, filter);
+
+    static string GpuSource(MonitorInfo monitor, IntPtr window, int fps, Size size) => window != IntPtr.Zero
+        ? $"gfxcapture=hwnd={window}:max_framerate={fps}:width={size.Width}:height={size.Height}:resize_mode=scale_aspect,fps={fps}"
+        : $"ddagrab=output_idx={monitor.OutputIndex}:framerate={fps}";
+
+    static string GpuInput(MonitorInfo monitor, string graph) =>
+        $"-init_hw_device d3d11va=cap:{monitor.Adapter.Index} -filter_hw_device cap -filter_complex \"{graph}[v]\" -map \"[v]\"";
+
+    static string GdiInput(MonitorInfo? monitor, int fps, string filter)
+    {
+        var area = monitor == null ? "" :
+            $"-offset_x {monitor.Bounds.X} -offset_y {monitor.Bounds.Y} -video_size {monitor.Bounds.Width}x{monitor.Bounds.Height} ";
+        return $"-f gdigrab -framerate {fps} -draw_mouse 1 {area}-i desktop -vf \"{filter}\"";
     }
 
     public static string FileEncoderArgs(string? pipelineId, int bitrateMbps)

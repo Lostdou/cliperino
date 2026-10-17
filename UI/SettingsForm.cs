@@ -4,7 +4,9 @@ using Cliperino.Update;
 
 namespace Cliperino.UI;
 
-public sealed record PreviewSource(string? Ffmpeg, Func<IReadOnlyList<Segment>> Segments, string Caption);
+public sealed record CaptureChoice(CaptureMode Mode, MonitorInfo? Monitor, IReadOnlyList<string> Games);
+
+public sealed record PreviewSource(Func<LivePreview>? Create, string Key, string Caption);
 
 sealed class SettingsForm : Form
 {
@@ -16,12 +18,13 @@ sealed class SettingsForm : Form
     static readonly Size PreviewSize = new(480, 270);
 
     readonly AppSettings s;
-    readonly Func<PreviewSource> previewSource;
+    readonly Func<CaptureChoice, PreviewSource> previewSource;
     readonly TabControl tabs = new();
     readonly PictureBox preview = new() { Size = PreviewSize, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
     readonly Label previewCaption = new() { AutoSize = true, MaximumSize = new Size(PreviewSize.Width, 0), ForeColor = SystemColors.GrayText };
     readonly System.Windows.Forms.Timer captionTimer = new() { Interval = 1000 };
     LivePreview? livePreview;
+    string? previewKey;
     int framePending;
 
     readonly NumericUpDown seconds = Number(5, 1200, 5);
@@ -52,7 +55,7 @@ sealed class SettingsForm : Form
     public bool ForceRedetect { get; private set; }
 
     public SettingsForm(AppSettings settings, GpuSnapshot gpus, string? activePipeline,
-        IReadOnlyList<(string Id, string Name)> microphones, Func<PreviewSource> previewSource, Action<IWin32Window> editClip)
+        IReadOnlyList<(string Id, string Name)> microphones, Func<CaptureChoice, PreviewSource> previewSource, Action<IWin32Window> editClip)
     {
         s = settings;
         this.previewSource = previewSource;
@@ -75,6 +78,8 @@ sealed class SettingsForm : Form
         var pages = new[] { CaptureTab(), AdvancedTab(), ExtrasTab() };
         tabs.TabPages.AddRange(pages);
         tabs.SelectedIndexChanged += (_, _) => UpdatePreview();
+        captureMode.SelectedIndexChanged += (_, _) => UpdatePreview();
+        monitor.SelectedIndexChanged += (_, _) => UpdatePreview();
 
         var save = new Button { Text = "Guardar", AutoSize = true };
         save.Click += OnSave;
@@ -135,6 +140,7 @@ sealed class SettingsForm : Form
         removeGame.Click += (_, _) =>
         {
             if (games.SelectedItem != null) games.Items.Remove(games.SelectedItem);
+            UpdatePreview();
         };
 
         foreach (var m in gpus.Monitors) monitor.Items.Add(new Item(m.Label, m));
@@ -263,16 +269,27 @@ sealed class SettingsForm : Form
 
     void UpdatePreview()
     {
-        var source = previewSource();
+        var source = previewSource(new CaptureChoice(
+            (CaptureMode)((Item)captureMode.SelectedItem!).Value!,
+            (monitor.SelectedItem as Item)?.Value as MonitorInfo,
+            games.Items.Cast<string>().ToList()));
         previewCaption.Text = source.Caption;
-        if (tabs.SelectedIndex == 0 && source.Ffmpeg != null) StartPreview(source);
+        if (tabs.SelectedIndex == 0 && source.Create != null) StartPreview(source);
         else StopPreview();
     }
 
     void StartPreview(PreviewSource source)
     {
+        if (source.Key != previewKey)
+        {
+            StopPreview();
+            var old = preview.Image;
+            preview.Image = null;
+            old?.Dispose();
+            previewKey = source.Key;
+        }
         if (livePreview != null) return;
-        livePreview = new LivePreview(source.Ffmpeg!, source.Segments);
+        livePreview = source.Create!();
         livePreview.FrameReady += ShowFrame;
         livePreview.Start();
     }
@@ -333,6 +350,7 @@ sealed class SettingsForm : Form
     {
         if (!games.Items.Cast<string>().Contains(executable, StringComparer.OrdinalIgnoreCase)) games.Items.Add(executable);
         games.SelectedItem = games.Items.Cast<string>().First(g => string.Equals(g, executable, StringComparison.OrdinalIgnoreCase));
+        UpdatePreview();
     }
 
     void OnSave(object? sender, EventArgs e)

@@ -314,7 +314,7 @@ sealed class TrayApp : ApplicationContext
         hotkey.Unregister(); // si sigue registrado, el formulario no recibe la combinacion
         try
         {
-            using var form = new SettingsForm(settings.Clone(), GpuInfo.Enumerate(), pipeline?.Description, AudioRecorder.ListMicrophones(), PreviewState, PickClipToEdit);
+            using var form = new SettingsForm(settings.Clone(), GpuInfo.Enumerate(), pipeline?.Description, AudioRecorder.ListMicrophones(), PreviewFor, PickClipToEdit);
             settingsForm = form;
             if (form.ShowDialog() != DialogResult.OK) return;
 
@@ -448,11 +448,23 @@ sealed class TrayApp : ApplicationContext
         new EditorForm(ffmpeg, clip, PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, settings.BitrateMbps)).Show();
     }
 
-    PreviewSource PreviewState()
+    PreviewSource PreviewFor(CaptureChoice choice)
     {
-        if (video == null) return new PreviewSource(null, () => [], "Activá la repetición para ver la vista previa.");
-        var what = captureWindow?.Executable ?? "la pantalla";
-        return new PreviewSource(ffmpeg, () => video?.ListSegments() ?? [], $"Grabando {what}");
+        if (ffmpeg is not { } path || caps == null || choice.Monitor is not { } monitor)
+            return new PreviewSource(null, "", "Falta ffmpeg para ver la vista previa.");
+
+        var window = choice.Mode == CaptureMode.Window && caps.HasGfxcapture && caps.HasDdagrab ? GameWindow.Find(choice.Games) : null;
+        if (window?.Handle == failedWindow) window = null;
+        var what = window?.Executable ?? "la pantalla";
+        bool recordingThis = video != null && window?.Handle == captureWindow?.Handle &&
+            (window != null || string.Equals(pipeline?.Monitor?.DeviceName, monitor.DeviceName, StringComparison.OrdinalIgnoreCase));
+        if (recordingThis)
+            return new PreviewSource(() => LivePreview.FromBuffer(path, () => video?.ListSegments() ?? []), "buffer", $"Grabando {what}");
+
+        var ddagrab = caps.HasDdagrab;
+        var handle = window?.Handle ?? IntPtr.Zero;
+        var caption = video != null ? "Así se va a ver cuando guardes." : "La repetición está apagada. Así se vería al activarla.";
+        return new PreviewSource(() => LivePreview.FromCapture(path, monitor, handle, ddagrab), $"{monitor.DeviceName}|{handle}", caption);
     }
 
     void RegisterHotkey()

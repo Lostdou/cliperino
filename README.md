@@ -32,7 +32,7 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
   - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos, monitor, FPS, audio, micrófono, atajo y carpeta.
   - **Avanzado:** codificador, bitrate y desfase de audio.
   - **Extras:** inicio con Windows, actualizaciones y versión.
-- La vista previa de la pestaña Captura decodifica el video en la GPU y solo corre mientras esa pestaña está visible.
+- La vista previa de la pestaña Captura solo corre mientras esa pestaña está visible. Si cambiás el monitor, el modo o los juegos, muestra cómo va a quedar antes de guardar, sin cortar la grabación.
 
 ## Editor de clips
 Se abre haciendo clic en la notificación "Clip guardado" o con **Editar clip…**, en la bandeja o abajo a la izquierda de los Ajustes.
@@ -51,14 +51,17 @@ Se abre haciendo clic en la notificación "Clip guardado" o con **Editar clip…
 - **Micrófono:** opcional; se mezcla al guardar el clip.
 
 ## Estructura
-| Carpeta | Contenido |
-|---|---|
-| `Core/` | Rutas, log y configuración |
-| `Ffmpeg/` | Búsqueda/descarga de ffmpeg, procesos y Job Object |
-| `Capture/` | Detección de GPU, pipelines, buffer de video y armado de clips |
-| `Audio/` | Captura WASAPI y buffer circular |
-| `UI/` | Bandeja, atajo global, ajustes, vista previa y editor |
-| `Update/` | Actualización desde los releases de GitHub |
+```text
+cliperino/
+├── Program.cs                   # Arranque, instancia única y modo --probe
+├── Cliperino.csproj             # Proyecto .NET 10 y configuración de publicación
+├── Core/                        # Base compartida
+├── Ffmpeg/                      # Manejo de ffmpeg
+├── Capture/                     # Video
+├── Audio/                       # Sonido
+├── UI/                          # Interfaz
+└── Update/                      # Actualizaciones
+```
 
 ## Cómo funciona
 - **Video:** ffmpeg graba segmentos MPEG-TS de 2 s en `%LOCALAPPDATA%\Cliperino\buffer`. Cliperino borra los que quedan fuera de la ventana de replay.

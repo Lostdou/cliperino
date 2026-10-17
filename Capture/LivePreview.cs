@@ -14,24 +14,33 @@ public sealed class LivePreview : IDisposable
     const int ChunkSize = 1 << 16;
     static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(30);
     static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(500);
+    static readonly TimeSpan CaptureRetryDelay = TimeSpan.FromSeconds(2);
 
-    static readonly string Arguments =
-        "-hide_banner -loglevel error -fflags nobuffer -flags low_delay -probesize 5000000 -analyzeduration 500000 " +
-        "-hwaccel auto -f mpegts -i pipe:0 -an " +
-        $"-vf \"fps={FramesPerSecond},scale={Width}:{Height}:force_original_aspect_ratio=decrease," +
-        $"pad={Width}:{Height}:(ow-iw)/2:(oh-ih)/2,format=bgr24\" -f rawvideo -flush_packets 1 pipe:1";
+    static readonly string Fit =
+        $"scale={Width}:{Height}:force_original_aspect_ratio=decrease,pad={Width}:{Height}:(ow-iw)/2:(oh-ih)/2,format=bgr24";
+    const string Output = "-f rawvideo -flush_packets 1 pipe:1";
 
     readonly string ffmpeg;
-    readonly Func<IReadOnlyList<Segment>> segments;
+    readonly string arguments;
+    readonly Func<IReadOnlyList<Segment>>? segments;
     readonly CancellationTokenSource stop = new();
 
     public event Action<Bitmap>? FrameReady;
 
-    public LivePreview(string ffmpeg, Func<IReadOnlyList<Segment>> segments)
+    LivePreview(string ffmpeg, string arguments, Func<IReadOnlyList<Segment>>? segments)
     {
         this.ffmpeg = ffmpeg;
+        this.arguments = arguments;
         this.segments = segments;
     }
+
+    public static LivePreview FromBuffer(string ffmpeg, Func<IReadOnlyList<Segment>> segments) => new(ffmpeg,
+        "-hide_banner -loglevel error -fflags nobuffer -flags low_delay -probesize 5000000 -analyzeduration 500000 " +
+        $"-hwaccel auto -f mpegts -i pipe:0 -an -vf \"fps={FramesPerSecond},{Fit}\" {Output}", segments);
+
+    public static LivePreview FromCapture(string ffmpeg, MonitorInfo monitor, IntPtr window, bool ddagrab) => new(ffmpeg,
+        $"-hide_banner -loglevel error -nostdin {PipelineBuilder.PreviewInput(monitor, window, ddagrab, FramesPerSecond, new Size(Width, Height), Fit)} {Output}",
+        null);
 
     public void Start() => _ = Task.Run(() => RunAsync(stop.Token));
 
@@ -41,20 +50,20 @@ public sealed class LivePreview : IDisposable
         {
             while (!token.IsCancellationRequested)
             {
-                var newest = segments().LastOrDefault();
-                if (newest != null) await StreamSessionAsync(newest, token);
-                await Task.Delay(RetryDelay, token);
+                if (segments == null) await StreamAsync(null, token);
+                else if (segments().LastOrDefault() is { } newest) await StreamAsync(newest, token);
+                await Task.Delay(segments == null ? CaptureRetryDelay : RetryDelay, token);
             }
         }
         catch (OperationCanceledException) { }
     }
 
-    async Task StreamSessionAsync(Segment first, CancellationToken token)
+    async Task StreamAsync(Segment? first, CancellationToken token)
     {
-        using var process = FfmpegProcess.Start(ffmpeg, Arguments, redirectStdout: true);
+        using var process = FfmpegProcess.Start(ffmpeg, arguments, redirectStdout: true);
         _ = process.StandardError.ReadToEndAsync(token);
         using var session = CancellationTokenSource.CreateLinkedTokenSource(token);
-        var feed = FeedAsync(process, first, session.Token);
+        var feed = first != null && segments != null ? FeedAsync(process, first, segments, session.Token) : Task.Delay(Timeout.Infinite, session.Token);
         var frames = ReadFramesAsync(process, session.Token);
         await Task.WhenAny(feed, frames);
         session.Cancel();
@@ -63,7 +72,7 @@ public sealed class LivePreview : IDisposable
         catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
     }
 
-    async Task FeedAsync(Process process, Segment first, CancellationToken token)
+    static async Task FeedAsync(Process process, Segment first, Func<IReadOnlyList<Segment>> segments, CancellationToken token)
     {
         var input = process.StandardInput.BaseStream;
         var buffer = new byte[ChunkSize];
