@@ -21,8 +21,11 @@ sealed class TrayApp : ApplicationContext
     string? ffmpeg;
     FfmpegCapabilities? caps;
     VideoBuffer? video;
-    AudioRecorder? systemAudio, micAudio;
+    IAudioRecorder? systemAudio, micAudio;
     ResolvedPipeline? pipeline;
+    GameWindow? captureWindow;
+    IntPtr failedWindow;
+    readonly System.Windows.Forms.Timer gameWatcher = new() { Interval = 3000 };
     SettingsForm? settingsForm;
     bool starting, saving, retriedAfterFailure;
     string? lastClip;
@@ -56,6 +59,8 @@ sealed class TrayApp : ApplicationContext
 
         hotkey.Pressed += async () => await SaveClipAsync();
         RegisterHotkey();
+        gameWatcher.Tick += (_, _) => WatchGame();
+        gameWatcher.Start();
         _ = InitializeAsync();
     }
 
@@ -138,21 +143,24 @@ sealed class TrayApp : ApplicationContext
             }
             settings.Save(); // persiste la cache del pipeline
             pipeline = resolved;
+            var window = captureWindow = FindGameWindow();
 
             // wasapi da problemas si se inicializa en el hilo sta de la ui
             var bufferSeconds = settings.ReplaySeconds + 10;
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
-                if (current.CaptureSystemAudio) systemAudio = new AudioRecorder(DataFlow.Render, null, bufferSeconds);
+                if (current.CaptureSystemAudio) systemAudio = await CreateSystemAudioAsync(current, window, bufferSeconds);
                 if (current.CaptureMicrophone) micAudio = new AudioRecorder(DataFlow.Capture, current.MicrophoneDeviceId, bufferSeconds);
             });
 
-            video = new VideoBuffer(path, resolved.Args, settings.ReplaySeconds);
+            var args = PipelineBuilder.BuildArgs(resolved.Id, resolved.Monitor, current.Fps, current.BitrateMbps, window?.Handle ?? IntPtr.Zero);
+            video = new VideoBuffer(path, args, current.ReplaySeconds);
             video.Failed += OnVideoFailed;
             video.Start();
-            SetStatus($"Grabando: últimos {FormatDuration(settings.ReplaySeconds)}", recordingIcon);
+            var what = window?.Executable ?? "el monitor";
+            SetStatus($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}", recordingIcon);
             // windows 11 esconde los iconos nuevos de la bandeja, sin aviso no se sabe que esta grabando
-            Notify($"Grabando los últimos {FormatDuration(settings.ReplaySeconds)}. {settings.Hotkey} guarda un clip.", ToolTipIcon.Info);
+            Notify($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}. {current.Hotkey} guarda un clip.", ToolTipIcon.Info);
         }
         catch (Exception ex)
         {
@@ -168,10 +176,43 @@ sealed class TrayApp : ApplicationContext
         }
     }
 
+    GameWindow? FindGameWindow()
+    {
+        if (settings.CaptureMode != CaptureMode.Window || caps?.HasGfxcapture != true || pipeline?.CapturesWithGpu != true) return null;
+        var window = GameWindow.Find(settings.GameExecutables);
+        return window?.Handle == failedWindow ? null : window;
+    }
+
+    static async Task<IAudioRecorder> CreateSystemAudioAsync(AppSettings s, GameWindow? window, double seconds)
+    {
+        if (s.AudioSource == AudioSource.Game && window != null)
+        {
+            try
+            {
+                return await ProcessAudioRecorder.StartAsync(window.ProcessId, seconds);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"No se pudo capturar el audio de {window.Executable}, se usa el del escritorio: {ex.Message}");
+            }
+        }
+        return new AudioRecorder(DataFlow.Render, null, seconds);
+    }
+
+    void WatchGame()
+    {
+        if (!IsRunning || starting || saving) return;
+        var window = FindGameWindow();
+        if (window?.Handle == captureWindow?.Handle) return;
+        Log.Write(window != null ? $"Juego detectado: {window.Executable}" : "El juego se cerró, se vuelve a capturar el monitor.");
+        StopReplay();
+        _ = StartReplayAsync(force: false);
+    }
+
     void StopReplay()
     {
         var (v, sys, mic) = (video, systemAudio, micAudio);
-        (video, systemAudio, micAudio, pipeline) = (null, null, null, null);
+        (video, systemAudio, micAudio, pipeline, captureWindow) = (null, null, null, null, null);
         if (v != null)
         {
             v.Failed -= OnVideoFailed;
@@ -186,7 +227,15 @@ sealed class TrayApp : ApplicationContext
     void OnVideoFailed(string error) => ui.Post(async _ =>
     {
         Log.Write($"La captura falló: {error}");
+        var window = captureWindow;
         StopReplay();
+        if (window != null)
+        {
+            failedWindow = window.Handle;
+            Notify($"No se pudo capturar la ventana de {window.Executable}, se captura el monitor.", ToolTipIcon.Warning);
+            await StartReplayAsync(force: false);
+            return;
+        }
         if (!retriedAfterFailure)
         {
             // puede ser un driver actualizado o un cambio de gpu
@@ -204,6 +253,7 @@ sealed class TrayApp : ApplicationContext
     async Task ToggleAsync()
     {
         retriedAfterFailure = false;
+        failedWindow = IntPtr.Zero;
         if (IsRunning) StopReplay();
         else await StartReplayAsync(force: false);
     }
@@ -259,6 +309,7 @@ sealed class TrayApp : ApplicationContext
             var updated = form.Result;
             bool restart = IsRunning && (form.ForceRedetect || updated.CaptureChanged(settings));
             if (form.ForceRedetect) updated.CachedPipelineId = null;
+            failedWindow = IntPtr.Zero;
             settings = updated;
             settings.Save();
             settings.ApplyStartWithWindows();
@@ -294,6 +345,7 @@ sealed class TrayApp : ApplicationContext
 
     void ExitApp()
     {
+        gameWatcher.Dispose();
         StopReplay();
         hotkey.Dispose();
         tray.Visible = false;
@@ -304,7 +356,7 @@ sealed class TrayApp : ApplicationContext
     void SetStatus(string text, Icon icon)
     {
         statusItem.Text = text;
-        pipelineItem.Text = pipeline?.Description ?? "";
+        pipelineItem.Text = captureWindow != null ? $"{pipeline?.Description} · ventana de {captureWindow.Executable}" : pipeline?.Description ?? "";
         pipelineItem.Visible = pipeline != null;
         var tip = $"Cliperino – {text}";
         tray.Text = tip.Length > 127 ? tip[..127] : tip;

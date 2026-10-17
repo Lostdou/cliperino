@@ -7,7 +7,7 @@ using Cliperino.Core;
 namespace Cliperino.Audio;
 
 // sin dispositivo elegido sigue al predeterminado, ej: al enchufar auriculares
-public sealed class AudioRecorder : IDisposable, IMMNotificationClient
+public sealed class AudioRecorder : IAudioRecorder, IMMNotificationClient
 {
     readonly DataFlow flow;
     readonly Role role;

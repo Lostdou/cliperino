@@ -6,6 +6,10 @@ namespace Cliperino.Core;
 
 public enum EncoderPreference { Auto, Nvenc, Amf, Qsv, X264 }
 
+public enum CaptureMode { Window, Monitor }
+
+public enum AudioSource { Desktop, Game }
+
 public sealed class AppSettings
 {
     public int ReplaySeconds { get; set; } = 60;
@@ -13,6 +17,9 @@ public sealed class AppSettings
     public int BitrateMbps { get; set; } = 20;
     public string? MonitorDeviceName { get; set; }
     public EncoderPreference Encoder { get; set; } = EncoderPreference.Auto;
+    public CaptureMode CaptureMode { get; set; } = CaptureMode.Window;
+    public List<string> GameExecutables { get; set; } = ["VALORANT-Win64-Shipping.exe"];
+    public AudioSource AudioSource { get; set; } = AudioSource.Desktop;
     public string Hotkey { get; set; } = "Ctrl+Alt+F10";
     public string OutputFolder { get; set; } = AppPaths.DefaultClips;
     public bool CaptureSystemAudio { get; set; } = true;
@@ -61,7 +68,8 @@ public sealed class AppSettings
         ReplaySeconds != other.ReplaySeconds || Fps != other.Fps || BitrateMbps != other.BitrateMbps ||
         MonitorDeviceName != other.MonitorDeviceName || Encoder != other.Encoder ||
         CaptureSystemAudio != other.CaptureSystemAudio || CaptureMicrophone != other.CaptureMicrophone ||
-        MicrophoneDeviceId != other.MicrophoneDeviceId;
+        MicrophoneDeviceId != other.MicrophoneDeviceId || CaptureMode != other.CaptureMode || AudioSource != other.AudioSource ||
+        !GameExecutables.SequenceEqual(other.GameExecutables, StringComparer.OrdinalIgnoreCase);
 
     AppSettings Normalized()
     {
@@ -71,6 +79,7 @@ public sealed class AppSettings
         AudioOffsetMs = Math.Clamp(AudioOffsetMs, -2000, 2000);
         if (string.IsNullOrWhiteSpace(OutputFolder)) OutputFolder = AppPaths.DefaultClips;
         if (string.IsNullOrWhiteSpace(Hotkey)) Hotkey = "Ctrl+Alt+F10";
+        GameExecutables = GameExecutables?.Select(g => g.Trim()).Where(g => g.Length > 0).ToList() ?? [];
         return this;
     }
 

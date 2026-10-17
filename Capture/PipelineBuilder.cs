@@ -4,7 +4,10 @@ using Cliperino.Ffmpeg;
 
 namespace Cliperino.Capture;
 
-public sealed record ResolvedPipeline(string Id, string Description, string Args);
+public sealed record ResolvedPipeline(string Id, string Description, MonitorInfo? Monitor)
+{
+    public bool CapturesWithGpu => Id.StartsWith("dda-");
+}
 
 // ids: dda-zc-<encoder> (zero-copy), dda-sys-<encoder> (via memoria del sistema), gdi-x264
 public static class PipelineBuilder
@@ -50,7 +53,7 @@ public static class PipelineBuilder
         return list.Where(id => id.EndsWith(wanted)).Concat(list.Where(id => !id.EndsWith(wanted))).ToList();
     }
 
-    public static string BuildArgs(string id, MonitorInfo? monitor, int fps, int bitrateMbps)
+    public static string BuildArgs(string id, MonitorInfo? monitor, int fps, int bitrateMbps, IntPtr window = default)
     {
         var parts = id.Split('-');
         var encoder = parts[^1];
@@ -65,9 +68,13 @@ public static class PipelineBuilder
                 (_, "x264") => ",hwdownload,format=bgra,format=yuv420p",
                 _ => ",hwdownload,format=bgra,format=nv12",
             };
-            // sin -filter_hw_device ddagrab usa el adaptador 0 y falla en sistemas multi-gpu
+            // gfxcapture solo entrega frames cuando la ventana cambia: fps los vuelve constantes para el segmentador
+            var source = window != IntPtr.Zero
+                ? $"gfxcapture=hwnd={window}:max_framerate={fps}:width={monitor.Bounds.Width}:height={monitor.Bounds.Height}:resize_mode=scale_aspect,fps={fps}"
+                : $"ddagrab=output_idx={monitor.OutputIndex}:framerate={fps}";
+            // sin -filter_hw_device la captura usa el adaptador 0 y falla en sistemas multi-gpu
             input = $"-init_hw_device d3d11va=cap:{monitor.Adapter.Index} -filter_hw_device cap " +
-                    $"-filter_complex \"ddagrab=output_idx={monitor.OutputIndex}:framerate={fps}{conversion}[v]\" -map \"[v]\"";
+                    $"-filter_complex \"{source}{conversion}[v]\" -map \"[v]\"";
         }
         else
         {
@@ -129,7 +136,7 @@ public static class PipelineBuilder
         return result;
 
         ResolvedPipeline Make(string id) =>
-            new(id, Describe(id, monitor, gpus), BuildArgs(id, monitor, settings.Fps, settings.BitrateMbps));
+            new(id, Describe(id, monitor, gpus), monitor);
     }
 
     public static async Task<int> RunDiagnosticsAsync(TextWriter output)
@@ -175,7 +182,7 @@ public static class PipelineBuilder
         sb.AppendLine($"Cliperino probe – {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"ffmpeg: {ffmpeg}");
         sb.AppendLine($"  {caps.Version}");
-        sb.AppendLine($"  ddagrab={caps.HasDdagrab} gdigrab={caps.HasGdigrab} nvenc={caps.HasNvenc} amf={caps.HasAmf} qsv={caps.HasQsv} x264={caps.HasX264}");
+        sb.AppendLine($"  ddagrab={caps.HasDdagrab} gdigrab={caps.HasGdigrab} nvenc={caps.HasNvenc} amf={caps.HasAmf} qsv={caps.HasQsv} x264={caps.HasX264} gfxcapture={caps.HasGfxcapture}");
         sb.AppendLine("GPUs:");
         foreach (var a in gpus.Adapters)
             sb.AppendLine($"  [{a.Index}] {a.Name} ({a.Vendor}, VEN_{a.VendorId:X4} DEV_{a.DeviceId:X4})");

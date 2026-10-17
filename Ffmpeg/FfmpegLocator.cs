@@ -6,7 +6,7 @@ using Cliperino.Core;
 namespace Cliperino.Ffmpeg;
 
 public sealed record FfmpegCapabilities(
-    string Version, bool HasDdagrab, bool HasGdigrab, bool HasNvenc, bool HasAmf, bool HasQsv, bool HasX264)
+    string Version, bool HasDdagrab, bool HasGdigrab, bool HasNvenc, bool HasAmf, bool HasQsv, bool HasX264, bool HasGfxcapture)
 {
     public bool HasEncoder(string encoder) => encoder switch
     {
@@ -98,7 +98,8 @@ public static class FfmpegLocator
             Has(encoders.Output, "h264_nvenc"),
             Has(encoders.Output, "h264_amf"),
             Has(encoders.Output, "h264_qsv"),
-            Has(encoders.Output, "libx264"));
+            Has(encoders.Output, "libx264"),
+            Has(filters.Output, "gfxcapture"));
     }
 }
 

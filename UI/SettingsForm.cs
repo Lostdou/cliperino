@@ -17,10 +17,15 @@ sealed class SettingsForm : Form
     readonly NumericUpDown bitrate = Number(2, 150, 1);
     readonly ComboBox monitor = Dropdown(380);
     readonly ComboBox encoder = Dropdown(380);
+    readonly ComboBox captureMode = Dropdown(380);
+    readonly ListBox games = new() { Width = 300, Height = 64, IntegralHeight = false };
+    readonly Button addGame = new() { Text = "Agregar…", AutoSize = true };
+    readonly Button removeGame = new() { Text = "Quitar", AutoSize = true };
+    readonly ComboBox audioSource = Dropdown(220);
     readonly Label detected = Hint("");
     readonly TextBox hotkeyBox = new() { ReadOnly = true, Width = 160, BackColor = SystemColors.Window };
     readonly TextBox folder = new() { Width = 340 };
-    readonly CheckBox systemAudio = Check("Grabar audio del sistema");
+    readonly CheckBox systemAudio = Check("Sistema:");
     readonly CheckBox mic = Check("Micrófono:");
     readonly ComboBox micDevice = Dropdown(300);
     readonly NumericUpDown offset = Number(-2000, 2000, 10);
@@ -99,6 +104,30 @@ sealed class SettingsForm : Form
         micDevice.Enabled = mic.Checked;
         mic.CheckedChanged += (_, _) => micDevice.Enabled = mic.Checked;
 
+        captureMode.Items.Add(new Item("Juego (recomendado): en pantalla completa o en ventana", CaptureMode.Window));
+        captureMode.Items.Add(new Item("Pantalla: todo el monitor, escritorio incluido", CaptureMode.Monitor));
+        captureMode.SelectedItem = captureMode.Items.Cast<Item>().First(i => Equals(i.Value, s.CaptureMode));
+        games.Items.AddRange(s.GameExecutables.Cast<object>().ToArray());
+        addGame.Click += (_, _) => ShowOpenWindows(addGame);
+        removeGame.Click += (_, _) =>
+        {
+            if (games.SelectedItem != null) games.Items.Remove(games.SelectedItem);
+        };
+
+        audioSource.Items.Add(new Item("Todo el escritorio", AudioSource.Desktop));
+        audioSource.Items.Add(new Item("Solo el juego (Windows 11)", AudioSource.Game));
+        audioSource.SelectedItem = audioSource.Items.Cast<Item>().First(i => Equals(i.Value, s.AudioSource));
+
+        void UpdateEnabled()
+        {
+            bool window = Equals((captureMode.SelectedItem as Item)?.Value, CaptureMode.Window);
+            games.Enabled = addGame.Enabled = removeGame.Enabled = window;
+            audioSource.Enabled = window && systemAudio.Checked;
+        }
+        captureMode.SelectedIndexChanged += (_, _) => UpdateEnabled();
+        systemAudio.CheckedChanged += (_, _) => UpdateEnabled();
+        UpdateEnabled();
+
         offset.Value = s.AudioOffsetMs;
         startWithWindows.Checked = s.StartWithWindows;
         startOnLaunch.Checked = s.StartReplayOnLaunch;
@@ -112,12 +141,15 @@ sealed class SettingsForm : Form
         Row("Guardar los últimos (seg):", seconds, secondsHint);
         Row("FPS:", fps);
         Row("Bitrate (Mbps):", bitrate);
+        Row("Captura:", captureMode);
+        Row("Juegos:", games, Stack(addGame, removeGame));
+        Row("", Hint("Con el juego abierto, Agregar… lo muestra como en Alt+Tab"));
         Row("Monitor:", monitor);
         Row("Codificador:", encoder);
         Row("En uso:", detected, redetect);
         Row("Atajo para guardar:", hotkeyBox, Hint("Hacé clic y presioná la combinación"));
         Row("Carpeta de clips:", folder, browse);
-        Row("Audio:", systemAudio);
+        Row("Audio:", systemAudio, audioSource);
         Row("", mic, micDevice);
         Row("Desfase de audio (ms):", offset, Hint("Subilo si el sonido llega antes que la imagen"));
         Row("Inicio:", startWithWindows);
@@ -157,6 +189,9 @@ sealed class SettingsForm : Form
         s.Encoder = (EncoderPreference)((Item)encoder.SelectedItem!).Value!;
         s.Hotkey = hotkeyBox.Text;
         s.OutputFolder = folder.Text.Trim();
+        s.CaptureMode = (CaptureMode)((Item)captureMode.SelectedItem!).Value!;
+        s.GameExecutables = games.Items.Cast<string>().ToList();
+        s.AudioSource = (AudioSource)((Item)audioSource.SelectedItem!).Value!;
         s.CaptureSystemAudio = systemAudio.Checked;
         s.CaptureMicrophone = mic.Checked;
         s.MicrophoneDeviceId = (micDevice.SelectedItem as Item)?.Value as string;
@@ -164,6 +199,48 @@ sealed class SettingsForm : Form
         s.StartWithWindows = startWithWindows.Checked;
         s.StartReplayOnLaunch = startOnLaunch.Checked;
         DialogResult = DialogResult.OK;
+    }
+
+    void ShowOpenWindows(Control anchor)
+    {
+        var menu = new ContextMenuStrip();
+        foreach (var window in GameWindow.ListOpen())
+        {
+            var item = new ToolStripMenuItem($"{window.Title}   ({window.Executable})", IconOf(window.Path));
+            item.Click += (_, _) => AddGame(window.Executable);
+            menu.Items.Add(item);
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Buscar ejecutable…", null, (_, _) => BrowseGame());
+        // el click del item llega despues de closed: se libera en el siguiente ciclo de mensajes
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
+        menu.Show(anchor, new Point(0, anchor.Height));
+    }
+
+    void BrowseGame()
+    {
+        using var dialog = new OpenFileDialog { Filter = "Ejecutables (*.exe)|*.exe", Title = "Elegí el ejecutable del juego" };
+        if (dialog.ShowDialog(this) == DialogResult.OK) AddGame(Path.GetFileName(dialog.FileName));
+    }
+
+    void AddGame(string executable)
+    {
+        if (!games.Items.Cast<string>().Contains(executable, StringComparer.OrdinalIgnoreCase)) games.Items.Add(executable);
+        games.SelectedItem = games.Items.Cast<string>().First(g => string.Equals(g, executable, StringComparison.OrdinalIgnoreCase));
+    }
+
+    static Image? IconOf(string? path)
+    {
+        if (path == null || !File.Exists(path)) return null;
+        using var icon = Icon.ExtractAssociatedIcon(path);
+        return icon?.ToBitmap();
+    }
+
+    static FlowLayoutPanel Stack(params Control[] controls)
+    {
+        var panel = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty };
+        panel.Controls.AddRange(controls);
+        return panel;
     }
 
     static NumericUpDown Number(int min, int max, int increment) =>

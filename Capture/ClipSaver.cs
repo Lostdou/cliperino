@@ -8,26 +8,36 @@ namespace Cliperino.Capture;
 
 public static class ClipSaver
 {
-    const int TsPacketSize = 188;
-
     public static async Task<string> SaveAsync(
         string ffmpeg, VideoBuffer video, AudioRingBuffer? systemAudio, AudioRingBuffer? micAudio, AppSettings settings)
     {
         var endUtc = DateTime.UtcNow;
         using var pause = video.PauseCleanup();
 
-        var segments = video.ListSegments();
+        var segments = video.ListSegments()
+            .Select(s => (s.Path, s.CreatedUtc, Pts: MpegTs.FirstPts(s.Path)))
+            .Where(s => s.Pts != null)
+            .Select(s => (s.Path, s.CreatedUtc, Pts: s.Pts!.Value))
+            .ToList();
+        if (segments.Count == 0) throw new InvalidOperationException("Todavía no hay video en el buffer.");
+
+        // tras un hueco (ventana minimizada) ffmpeg crea varios segmentos de golpe: el minimo descarta esas fechas atrasadas
+        var reference = segments[^1].Pts;
+        var anchor = segments.Min(s => s.CreatedUtc - MpegTs.Elapsed(reference, s.Pts));
+        DateTime ClockOf(long pts) => anchor + MpegTs.Elapsed(reference, pts);
+
         var target = endUtc.AddSeconds(-settings.ReplaySeconds);
         int first = segments.Count - 1;
-        while (first > 0 && segments[first].CreatedUtc > target) first--;
+        while (first > 0 && ClockOf(segments[first].Pts) > target) first--;
         // ffmpeg sigue escribiendo el ultimo segmento: se corta en paquetes ts completos
-        var chosen = segments.Skip(Math.Max(first, 0))
-            .Select(s => (s.Path, Length: new FileInfo(s.Path).Length / TsPacketSize * TsPacketSize))
-            .Where(s => s.Length > 0)
+        var chosen = segments.Skip(first)
+            .Select(s => (s.Path, Length: new FileInfo(s.Path).Length / MpegTs.PacketSize * MpegTs.PacketSize))
             .ToList();
-        if (chosen.Count == 0) throw new InvalidOperationException("Todavía no hay video en el buffer.");
+        var lastPts = MpegTs.LastPts(chosen[^1].Path, chosen[^1].Length) ?? reference;
 
-        var startUtc = segments[first].CreatedUtc.AddMilliseconds(-settings.AudioOffsetMs);
+        var offset = TimeSpan.FromMilliseconds(settings.AudioOffsetMs);
+        var startUtc = ClockOf(segments[first].Pts) - offset;
+        var finishUtc = ClockOf(lastPts) + TimeSpan.FromSeconds(1.0 / settings.Fps) - offset;
         var stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         Directory.CreateDirectory(settings.OutputFolder);
         Directory.CreateDirectory(AppPaths.Temp);
@@ -40,7 +50,7 @@ public static class ClipSaver
             {
                 if (ring == null) continue;
                 var wav = Path.Combine(AppPaths.Temp, $"{stamp}_{wavs.Count}.wav");
-                var pcm = ring.Extract(startUtc, endUtc);
+                var pcm = ring.Extract(startUtc, finishUtc);
                 using (var writer = new WaveFileWriter(wav, ring.Format)) writer.Write(pcm, 0, pcm.Length);
                 wavs.Add(wav);
             }
