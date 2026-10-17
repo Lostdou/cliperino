@@ -97,7 +97,7 @@ public static class ClipSaver
         }
     }
 
-    static string UniquePath(string path)
+    internal static string UniquePath(string path)
     {
         var dir = Path.GetDirectoryName(path)!;
         var name = Path.GetFileNameWithoutExtension(path);

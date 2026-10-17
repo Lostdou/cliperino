@@ -1,0 +1,127 @@
+using System.Diagnostics;
+using System.Text.Json;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+using Cliperino.Capture;
+using Cliperino.Core;
+using Cliperino.Ffmpeg;
+
+namespace Cliperino.UI;
+
+sealed class EditorForm : Form
+{
+    const string ClipHost = "clip.cliperino";
+    const string PageResource = "Cliperino.editor.html";
+    const string WebView2Download = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
+    static readonly Color Background = Color.FromArgb(20, 20, 20);
+    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+
+    sealed record EditorMessage(string Action, double Start, double End, bool RemoveAudio, bool Exact, bool Replace);
+
+    readonly WebView2 view = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Background };
+    readonly string ffmpeg;
+    readonly string clipPath;
+    readonly string exactEncoderArgs;
+    string? lastOutput;
+    bool exporting;
+
+    public EditorForm(string ffmpeg, string clipPath, string exactEncoderArgs)
+    {
+        this.ffmpeg = ffmpeg;
+        this.clipPath = clipPath;
+        this.exactEncoderArgs = exactEncoderArgs;
+        Text = $"Cliperino – {Path.GetFileName(clipPath)}";
+        StartPosition = FormStartPosition.CenterScreen;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(1100, 760);
+        MinimumSize = new Size(720, 480);
+        BackColor = Background;
+        Controls.Add(view);
+        Shown += async (_, _) => await InitializeAsync();
+    }
+
+    string ClipUrl =>
+        $"https://{ClipHost}/{Uri.EscapeDataString(Path.GetFileName(clipPath))}?v={File.GetLastWriteTimeUtc(clipPath).Ticks}";
+
+    async Task InitializeAsync()
+    {
+        try
+        {
+            var environment = await CoreWebView2Environment.CreateAsync(null, Path.Combine(AppPaths.Data, "webview2"));
+            await view.EnsureCoreWebView2Async(environment);
+        }
+        catch (WebView2RuntimeNotFoundException)
+        {
+            MessageBox.Show(this, $"El editor necesita Microsoft Edge WebView2 Runtime.\n\nInstalalo desde {WebView2Download} y volvé a abrirlo.",
+                "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Close();
+            return;
+        }
+
+        var core = view.CoreWebView2;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.IsStatusBarEnabled = false;
+        core.SetVirtualHostNameToFolderMapping(ClipHost, Path.GetDirectoryName(clipPath)!, CoreWebView2HostResourceAccessKind.Allow);
+        core.WebMessageReceived += OnWebMessage;
+        var hasAudio = await HasAudioAsync();
+        core.NavigationCompleted += (_, _) => Post(new { type = "load", url = ClipUrl, hasAudio });
+        core.NavigateToString(ReadPage());
+    }
+
+    async void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        var message = JsonSerializer.Deserialize<EditorMessage>(e.WebMessageAsJson, Json);
+        if (message?.Action == "reveal") Process.Start("explorer.exe", $"/select,\"{lastOutput ?? clipPath}\"");
+        else if (message?.Action == "export") await ExportAsync(message);
+    }
+
+    async Task ExportAsync(EditorMessage message)
+    {
+        if (exporting) return;
+        exporting = true;
+        var edit = new ClipEdit(message.Start, message.End, message.RemoveAudio, message.Exact, message.Replace);
+        try
+        {
+            var output = await Task.Run(() => ClipEditor.ExportAsync(ffmpeg, clipPath, edit, exactEncoderArgs));
+            lastOutput = output;
+            if (edit.Replace)
+            {
+                var hasAudio = await HasAudioAsync();
+                Post(new { type = "done", text = "Listo: se reemplazó el original.", reload = true, url = ClipUrl, hasAudio });
+            }
+            else
+            {
+                Post(new { type = "done", text = $"Listo: guardado como {Path.GetFileName(output)}", reload = false });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Error editando {clipPath}: {ex}");
+            Post(new { type = "error", text = $"No se pudo guardar: {ex.Message}", reload = edit.Replace, url = ClipUrl });
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+
+    async Task<bool> HasAudioAsync()
+    {
+        var (_, output) = await FfmpegProcess.RunAsync(ffmpeg, $"-hide_banner -nostdin -i \"{clipPath}\"", TimeSpan.FromSeconds(10));
+        return output.Contains("Audio:");
+    }
+
+    void Post(object message)
+    {
+        if (IsDisposed || view.CoreWebView2 == null) return;
+        view.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
+    }
+
+    static string ReadPage()
+    {
+        using var stream = typeof(EditorForm).Assembly.GetManifestResourceStream(PageResource)!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+}

@@ -30,6 +30,15 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 - **Vista previa** (menú de la bandeja) muestra lo que se está grabando y se actualiza cada ~2 s, con cada segmento nuevo. Sirve para confirmar que se ve el juego y no el escritorio.
 - Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se abre la carpeta y se entra a los **Ajustes**: duración, FPS, bitrate, modo de captura, juegos, monitor, codificador, atajo, carpeta, audio, micrófono, desfase de audio e inicio con Windows.
 
+## Editor de clips
+Se abre haciendo clic en la notificación "Clip guardado" o desde **Editar clip…** en la bandeja.
+
+- **Recortar:** con las manijas de la línea de tiempo o con **Inicio aquí / Fin aquí** (teclas **I** / **O**). **P** reproduce solo el tramo elegido y las flechas avanzan cuadro por cuadro (**Shift** + flecha avanza 1 s).
+- **Quitar audio:** deja el clip sin pista de audio.
+- **Corte exacto:** recodifica el video con la GPU (o x264) para cortar en el cuadro elegido. Sin esta opción el corte es instantáneo pero cae en el keyframe anterior, hasta 1 s antes.
+- **Guardar:** por defecto crea `<clip>_editado.mp4` al lado del original; con **Reemplazar el original** lo sobrescribe.
+- **Requisito:** usa Microsoft Edge WebView2, que ya viene instalado en Windows 10 y 11.
+
 ## Modos de captura
 | Modo | Qué graba | Cómo |
 |---|---|---|

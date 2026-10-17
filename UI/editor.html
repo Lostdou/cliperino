@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: dark; --bg: #141414; --panel: #1f1f1f; --line: #333; --text: #e8e8e8; --muted: #9a9a9a; --accent: #e5484d; --selection: rgba(229, 72, 77, .30); }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
+  video { flex: 1; min-height: 0; width: 100%; background: #000; outline: none; }
+  .panel { padding: 12px 16px 14px; background: var(--panel); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+  .timeline { position: relative; height: 34px; background: #2a2a2a; border-radius: 6px; cursor: pointer; user-select: none; touch-action: none; }
+  .range { position: absolute; top: 0; bottom: 0; background: var(--selection); border-left: 3px solid var(--accent); border-right: 3px solid var(--accent); pointer-events: none; }
+  .handle { position: absolute; top: -5px; bottom: -5px; width: 16px; margin-left: -8px; cursor: ew-resize; }
+  .handle::after { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 6px; border-radius: 3px; background: var(--accent); }
+  .playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  button { background: #2c2c2c; color: var(--text); border: 1px solid #3c3c3c; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  button:hover:not(:disabled) { background: #363636; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  label.disabled { color: var(--muted); cursor: default; }
+  .times { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: 12px; }
+  #status { min-height: 1.3em; }
+  #status.error { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<video id="video" controls preload="auto"></video>
+<div class="panel">
+  <div class="timeline" id="timeline">
+    <div class="range" id="range"></div>
+    <div class="handle" id="startHandle" title="Inicio del recorte"></div>
+    <div class="handle" id="endHandle" title="Fin del recorte"></div>
+    <div class="playhead" id="playhead"></div>
+  </div>
+  <div class="row">
+    <button id="markStart" title="Tecla I">Inicio aquí</button>
+    <button id="markEnd" title="Tecla O">Fin aquí</button>
+    <button id="playRange" title="Tecla P">Reproducir recorte</button>
+    <span class="times" id="times"></span>
+    <span class="spacer"></span>
+    <label id="removeAudioLabel"><input type="checkbox" id="removeAudio"> Quitar audio</label>
+    <label title="Recodifica el video para cortar en el cuadro exacto. Sin esto el corte es instantáneo pero cae en el keyframe anterior (hasta 1 s antes)."><input type="checkbox" id="exact" checked> Corte exacto</label>
+    <label><input type="checkbox" id="replace"> Reemplazar el original</label>
+    <button class="primary" id="save">Guardar</button>
+  </div>
+  <div class="row">
+    <span id="status"></span>
+    <span class="spacer"></span>
+    <span class="hint">Espacio: reproducir/pausa · ←/→: un cuadro · Shift+←/→: 1 s</span>
+    <button id="reveal">Mostrar en carpeta</button>
+  </div>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const video = $("video");
+  const timeline = $("timeline");
+  const minimumLength = 0.1;
+  const frame = 1 / 60;
+  let duration = 0;
+  let start = 0;
+  let end = 0;
+  let stopAtEnd = false;
+
+  const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+  const percent = seconds => duration ? (seconds / duration) * 100 : 0;
+  const format = seconds => {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${(seconds - minutes * 60).toFixed(2).padStart(5, "0")}`;
+  };
+
+  function render() {
+    $("range").style.left = percent(start) + "%";
+    $("range").style.width = (percent(end) - percent(start)) + "%";
+    $("startHandle").style.left = percent(start) + "%";
+    $("endHandle").style.left = percent(end) + "%";
+    $("playhead").style.left = percent(video.currentTime) + "%";
+    $("times").textContent = duration ? `${format(start)} → ${format(end)} (${format(end - start)})` : "";
+  }
+
+  function tick() {
+    if (stopAtEnd && video.currentTime >= end) {
+      video.pause();
+      stopAtEnd = false;
+    }
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  function timeAt(clientX) {
+    const box = timeline.getBoundingClientRect();
+    return clamp((clientX - box.left) / box.width, 0, 1) * duration;
+  }
+
+  function seek(seconds) {
+    video.currentTime = clamp(seconds, 0, duration);
+  }
+
+  function setStart(seconds) {
+    start = clamp(seconds, 0, end - minimumLength);
+  }
+
+  function setEnd(seconds) {
+    end = clamp(seconds, start + minimumLength, duration);
+  }
+
+  function draggable(handle, apply) {
+    handle.addEventListener("pointerdown", down => {
+      down.stopPropagation();
+      handle.setPointerCapture(down.pointerId);
+      const move = event => {
+        apply(timeAt(event.clientX));
+        render();
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", () => handle.removeEventListener("pointermove", move), { once: true });
+    });
+  }
+
+  draggable($("startHandle"), seconds => { setStart(seconds); seek(start); });
+  draggable($("endHandle"), seconds => { setEnd(seconds); seek(end); });
+
+  timeline.addEventListener("pointerdown", event => {
+    stopAtEnd = false;
+    seek(timeAt(event.clientX));
+  });
+
+  function playRange() {
+    seek(start);
+    stopAtEnd = true;
+    video.play();
+  }
+
+  $("markStart").onclick = () => setStart(video.currentTime);
+  $("markEnd").onclick = () => setEnd(video.currentTime);
+  $("playRange").onclick = playRange;
+
+  document.addEventListener("keydown", event => {
+    if (event.target.tagName === "INPUT" || !duration) return;
+    const step = event.shiftKey ? 1 : frame;
+    switch (event.key.toLowerCase()) {
+      case "i": setStart(video.currentTime); break;
+      case "o": setEnd(video.currentTime); break;
+      case "p": playRange(); break;
+      case " ": video.paused ? video.play() : video.pause(); break;
+      case "arrowleft": video.pause(); seek(video.currentTime - step); break;
+      case "arrowright": video.pause(); seek(video.currentTime + step); break;
+      default: return;
+    }
+    event.preventDefault();
+  }, true);
+
+  video.addEventListener("loadedmetadata", () => {
+    duration = video.duration;
+    start = 0;
+    end = duration;
+  });
+
+  function setStatus(text, isError) {
+    $("status").textContent = text || "";
+    $("status").className = isError ? "error" : "";
+  }
+
+  function setBusy(busy) {
+    $("save").disabled = busy;
+  }
+
+  function setAudioAvailable(hasAudio) {
+    $("removeAudio").disabled = !hasAudio;
+    $("removeAudio").checked = !hasAudio;
+    $("removeAudioLabel").className = hasAudio ? "" : "disabled";
+    $("removeAudioLabel").title = hasAudio ? "" : "Este clip no tiene audio";
+  }
+
+  function load(url) {
+    duration = 0;
+    video.src = url;
+  }
+
+  function release() {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+
+  $("save").onclick = () => {
+    const replace = $("replace").checked;
+    if (replace) release();
+    setBusy(true);
+    setStatus($("exact").checked ? "Guardando (recodificando el video)…" : "Guardando…");
+    chrome.webview.postMessage({
+      action: "export",
+      start,
+      end,
+      removeAudio: $("removeAudio").checked,
+      exact: $("exact").checked,
+      replace
+    });
+  };
+
+  $("reveal").onclick = () => chrome.webview.postMessage({ action: "reveal" });
+
+  chrome.webview.addEventListener("message", event => {
+    const message = event.data;
+    if (message.type === "load") {
+      setAudioAvailable(message.hasAudio);
+      load(message.url);
+      return;
+    }
+    setBusy(false);
+    setStatus(message.text, message.type === "error");
+    if (message.hasAudio !== undefined && message.hasAudio !== null) setAudioAvailable(message.hasAudio);
+    if (message.reload) load(message.url);
+  });
+
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

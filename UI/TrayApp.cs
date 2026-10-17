@@ -29,7 +29,7 @@ sealed class TrayApp : ApplicationContext
     SettingsForm? settingsForm;
     PreviewForm? previewForm;
     bool starting, saving, retriedAfterFailure;
-    string? lastClip;
+    Action? balloonClick;
 
     bool IsRunning => video != null;
 
@@ -45,6 +45,7 @@ sealed class TrayApp : ApplicationContext
             statusItem, pipelineItem, new ToolStripSeparator(),
             toggleItem, saveItem,
             new ToolStripMenuItem("Vista previa", null, (_, _) => ShowPreview()),
+            new ToolStripMenuItem("Editar clip…", null, (_, _) => PickClipToEdit()),
             new ToolStripMenuItem("Abrir carpeta de clips", null, (_, _) => OpenClipsFolder()),
             new ToolStripMenuItem("Ajustes…", null, (_, _) => ShowSettings()),
             new ToolStripSeparator(),
@@ -54,10 +55,7 @@ sealed class TrayApp : ApplicationContext
 
         tray = new NotifyIcon { Icon = idleIcon, Text = "Cliperino", ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += (_, _) => OpenClipsFolder();
-        tray.BalloonTipClicked += (_, _) =>
-        {
-            if (lastClip != null && File.Exists(lastClip)) Process.Start("explorer.exe", $"/select,\"{lastClip}\"");
-        };
+        tray.BalloonTipClicked += (_, _) => balloonClick?.Invoke();
 
         hotkey.Pressed += async () => await SaveClipAsync();
         RegisterHotkey();
@@ -278,9 +276,9 @@ sealed class TrayApp : ApplicationContext
         {
             var (path, v, s) = (ffmpeg, video, settings.Clone());
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
-            lastClip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
+            var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
             SystemSounds.Asterisk.Play();
-            Notify($"Clip guardado: {Path.GetFileName(lastClip)}", ToolTipIcon.Info);
+            Notify($"Clip guardado: {Path.GetFileName(clip)}. Clic para editarlo.", ToolTipIcon.Info, () => OpenEditor(clip));
         }
         catch (Exception ex)
         {
@@ -326,6 +324,24 @@ sealed class TrayApp : ApplicationContext
             settingsForm = null;
             RegisterHotkey();
         }
+    }
+
+    void PickClipToEdit()
+    {
+        Directory.CreateDirectory(settings.OutputFolder);
+        using var dialog = new OpenFileDialog
+        {
+            InitialDirectory = settings.OutputFolder,
+            Filter = "Clips (*.mp4)|*.mp4",
+            Title = "Elegí el clip a editar",
+        };
+        if (dialog.ShowDialog() == DialogResult.OK) OpenEditor(dialog.FileName);
+    }
+
+    void OpenEditor(string clip)
+    {
+        if (ffmpeg == null || !File.Exists(clip)) return;
+        new EditorForm(ffmpeg, clip, PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, settings.BitrateMbps)).Show();
     }
 
     void ShowPreview()
@@ -391,8 +407,11 @@ sealed class TrayApp : ApplicationContext
         saveItem.Enabled = IsRunning;
     }
 
-    void Notify(string text, ToolTipIcon icon) =>
+    void Notify(string text, ToolTipIcon icon, Action? onClick = null)
+    {
+        balloonClick = onClick;
         tray.ShowBalloonTip(4000, "Cliperino", text.Length > 250 ? text[..250] : text, icon);
+    }
 
     public static string FormatDuration(int seconds) =>
         seconds < 60 ? $"{seconds} s" : $"{seconds / 60}:{seconds % 60:00} min";

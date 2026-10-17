@@ -94,6 +94,18 @@ public static class PipelineBuilder
         return $"{input} {encoderArgs} -g {fps} -b:v {bitrateMbps}M -maxrate {bitrateMbps}M -bufsize {bitrateMbps * 2}M";
     }
 
+    public static string FileEncoderArgs(string? pipelineId, int bitrateMbps)
+    {
+        var rate = $"-b:v {bitrateMbps}M -maxrate {bitrateMbps * 2}M -bufsize {bitrateMbps * 2}M";
+        return pipelineId?.Split('-')[^1] switch
+        {
+            "nvenc" => $"-c:v h264_nvenc -preset p5 {rate}",
+            "amf" => $"-c:v h264_amf -quality quality {rate}",
+            "qsv" => $"-vf format=nv12 -c:v h264_qsv -preset medium {rate}",
+            _ => "-c:v libx264 -preset veryfast -crf 20",
+        };
+    }
+
     public static string Describe(string id, MonitorInfo? monitor, GpuSnapshot gpus)
     {
         var parts = id.Split('-');
