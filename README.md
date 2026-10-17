@@ -27,6 +27,7 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 ## Uso
 - El ícono de la bandeja cambia de color según el estado: 🔴 grabando, ⚪ desactivado, 🟠 detectando o guardando.
 - **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`. Al hacer clic en la notificación se abre el archivo en el Explorador.
+- **Vista previa** (menú de la bandeja) muestra lo que se está grabando y se actualiza cada ~2 s, con cada segmento nuevo. Sirve para confirmar que se ve el juego y no el escritorio.
 - Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se abre la carpeta y se entra a los **Ajustes**: duración, FPS, bitrate, modo de captura, juegos, monitor, codificador, atajo, carpeta, audio, micrófono, desfase de audio e inicio con Windows.
 
 ## Modos de captura

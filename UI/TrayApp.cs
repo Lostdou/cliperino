@@ -27,6 +27,7 @@ sealed class TrayApp : ApplicationContext
     IntPtr failedWindow;
     readonly System.Windows.Forms.Timer gameWatcher = new() { Interval = 3000 };
     SettingsForm? settingsForm;
+    PreviewForm? previewForm;
     bool starting, saving, retriedAfterFailure;
     string? lastClip;
 
@@ -43,6 +44,7 @@ sealed class TrayApp : ApplicationContext
         {
             statusItem, pipelineItem, new ToolStripSeparator(),
             toggleItem, saveItem,
+            new ToolStripMenuItem("Vista previa", null, (_, _) => ShowPreview()),
             new ToolStripMenuItem("Abrir carpeta de clips", null, (_, _) => OpenClipsFolder()),
             new ToolStripMenuItem("Ajustes…", null, (_, _) => ShowSettings()),
             new ToolStripSeparator(),
@@ -326,6 +328,25 @@ sealed class TrayApp : ApplicationContext
         }
     }
 
+    void ShowPreview()
+    {
+        if (previewForm != null)
+        {
+            previewForm.Activate();
+            return;
+        }
+        previewForm = new PreviewForm(PreviewState);
+        previewForm.FormClosed += (_, _) => previewForm = null;
+        previewForm.Show();
+    }
+
+    PreviewSource PreviewState()
+    {
+        if (video == null) return new PreviewSource(null, null, "La repetición instantánea está desactivada.");
+        var what = captureWindow != null ? $"Juego: {captureWindow.Executable}" : "Pantalla";
+        return new PreviewSource(ffmpeg, video.ListSegments().LastOrDefault()?.Path, $"{what} · {pipeline?.Description} · se actualiza cada 2 s");
+    }
+
     void RegisterHotkey()
     {
         if (hotkey.Register(settings.Hotkey)) Log.Write($"Atajo registrado: {settings.Hotkey}");
@@ -346,6 +367,7 @@ sealed class TrayApp : ApplicationContext
     void ExitApp()
     {
         gameWatcher.Dispose();
+        previewForm?.Close();
         StopReplay();
         hotkey.Dispose();
         tray.Visible = false;
