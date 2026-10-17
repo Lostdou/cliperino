@@ -88,11 +88,11 @@ sealed class EditorForm : Form
             if (edit.Replace)
             {
                 var hasAudio = await HasAudioAsync();
-                Post(new { type = "done", text = "Listo: se reemplazó el original.", reload = true, url = ClipUrl, hasAudio });
+                Post(new { type = "done", text = "Listo, se reemplazó el original.", reload = true, url = ClipUrl, hasAudio });
             }
             else
             {
-                Post(new { type = "done", text = $"Listo: guardado como {Path.GetFileName(output)}", reload = false });
+                Post(new { type = "done", text = $"Listo, se guardó como {Path.GetFileName(output)}", reload = false });
             }
         }
         catch (Exception ex)

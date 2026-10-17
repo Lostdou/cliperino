@@ -4,7 +4,6 @@ using Cliperino.Core;
 
 namespace Cliperino.Ffmpeg;
 
-// si cliperino muere, windows cierra los ffmpeg hijos
 static class JobObject
 {
     const int JobObjectExtendedLimitInformation = 9;

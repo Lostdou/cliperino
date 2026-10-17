@@ -18,7 +18,7 @@ static class Log
             }
             catch
             {
-                // el log nunca debe tumbar la app
+                // ignore
             }
         }
     }

@@ -39,7 +39,6 @@ static class MpegTs
         }
     }
 
-    // resta modulo 2^33 porque los pts de mpeg-ts dan la vuelta cada 20hs
     public static TimeSpan Elapsed(long from, long to)
     {
         long diff = ((to - from) % PtsWrap + PtsWrap) % PtsWrap;

@@ -49,7 +49,6 @@ public static class PipelineBuilder
             _ => null,
         };
         if (wanted == null) return list;
-        // el resto queda de respaldo para que la app siga grabando si el forzado falla
         return list.Where(id => id.EndsWith(wanted)).Concat(list.Where(id => !id.EndsWith(wanted))).ToList();
     }
 
@@ -64,15 +63,15 @@ public static class PipelineBuilder
             var conversion = (parts[1], encoder) switch
             {
                 ("zc", "qsv") => ",hwmap=derive_device=qsv,format=qsv,vpp_qsv=format=nv12",
-                ("zc", _) => "", // nvenc y amf aceptan texturas d3d11 directo
+                ("zc", _) => "",
                 (_, "x264") => ",hwdownload,format=bgra,format=yuv420p",
                 _ => ",hwdownload,format=bgra,format=nv12",
             };
-            // gfxcapture solo entrega frames cuando la ventana cambia: fps los vuelve constantes para el segmentador
+
             var source = window != IntPtr.Zero
                 ? $"gfxcapture=hwnd={window}:max_framerate={fps}:width={monitor.Bounds.Width}:height={monitor.Bounds.Height}:resize_mode=scale_aspect,fps={fps}"
                 : $"ddagrab=output_idx={monitor.OutputIndex}:framerate={fps}";
-            // sin -filter_hw_device la captura usa el adaptador 0 y falla en sistemas multi-gpu
+
             input = $"-init_hw_device d3d11va=cap:{monitor.Adapter.Index} -filter_hw_device cap " +
                     $"-filter_complex \"{source}{conversion}[v]\" -map \"[v]\"";
         }
@@ -90,7 +89,7 @@ public static class PipelineBuilder
             "qsv" => "-c:v h264_qsv -preset veryfast -async_depth 1",
             _ => "-c:v libx264 -preset ultrafast -tune zerolatency",
         };
-        // keyframe cada segundo para poder cortar segmentos de 2 s
+        
         return $"{input} {encoderArgs} -g {fps} -b:v {bitrateMbps}M -maxrate {bitrateMbps}M -bufsize {bitrateMbps * 2}M";
     }
 

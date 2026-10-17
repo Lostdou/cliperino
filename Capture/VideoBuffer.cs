@@ -23,7 +23,6 @@ public sealed class VideoBuffer : IDisposable
     int cleanupPauses;
     volatile bool stopped;
 
-    // se dispara desde un hilo del pool
     public event Action<string>? Failed;
 
     public VideoBuffer(string ffmpeg, string pipelineArgs, int replaySeconds)
@@ -164,7 +163,6 @@ public sealed class VideoBuffer : IDisposable
             {
                 if (!p.HasExited)
                 {
-                    // q cierra el segmento actual prolijamente, kill lo dejaria truncado
                     p.StandardInput.Write('q');
                     p.StandardInput.Flush();
                     if (!p.WaitForExit(3000)) p.Kill(entireProcessTree: true);

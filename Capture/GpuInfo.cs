@@ -7,7 +7,7 @@ public enum GpuVendor { Unknown, Nvidia, Amd, Intel }
 
 public sealed record GpuAdapter(int Index, string Name, GpuVendor Vendor, uint VendorId, uint DeviceId);
 
-// indices tal como los enumera dxgi, que son los que espera ffmpeg
+// indices tal como los enumera dxgi, lo que espera ffmpeg
 public sealed record MonitorInfo(string DeviceName, Rectangle Bounds, GpuAdapter Adapter, int OutputIndex, bool IsPrimary)
 {
     public string Label =>
@@ -44,7 +44,6 @@ public static class GpuInfo
                     var gpu = new GpuAdapter((int)i, desc.Description.Trim(), ToVendor(desc.VendorId), desc.VendorId, desc.DeviceId);
                     adapters.Add(gpu);
 
-                    // en laptops hibridas solo la igpu tiene salidas
                     for (uint j = 0; ; j++)
                     {
                         if (adapter.EnumOutputs(j, out var output).Failure || output == null) break;

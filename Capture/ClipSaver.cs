@@ -19,9 +19,8 @@ public static class ClipSaver
             .Where(s => s.Pts != null)
             .Select(s => (s.Path, s.CreatedUtc, Pts: s.Pts!.Value))
             .ToList();
-        if (segments.Count == 0) throw new InvalidOperationException("Todavía no hay video en el buffer.");
+        if (segments.Count == 0) throw new InvalidOperationException("Todavía no hay nada grabado, esperá unos segundos.");
 
-        // tras un hueco (ventana minimizada) ffmpeg crea varios segmentos de golpe: el minimo descarta esas fechas atrasadas
         var reference = segments[^1].Pts;
         var anchor = segments.Min(s => s.CreatedUtc - MpegTs.Elapsed(reference, s.Pts));
         DateTime ClockOf(long pts) => anchor + MpegTs.Elapsed(reference, pts);
@@ -29,7 +28,7 @@ public static class ClipSaver
         var target = endUtc.AddSeconds(-settings.ReplaySeconds);
         int first = segments.Count - 1;
         while (first > 0 && ClockOf(segments[first].Pts) > target) first--;
-        // ffmpeg sigue escribiendo el ultimo segmento: se corta en paquetes ts completos
+
         var chosen = segments.Skip(first)
             .Select(s => (s.Path, Length: new FileInfo(s.Path).Length / MpegTs.PacketSize * MpegTs.PacketSize))
             .ToList();

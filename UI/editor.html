@@ -44,7 +44,7 @@
     <span class="times" id="times"></span>
     <span class="spacer"></span>
     <label id="removeAudioLabel"><input type="checkbox" id="removeAudio"> Quitar audio</label>
-    <label title="Recodifica el video para cortar en el cuadro exacto. Sin esto el corte es instantáneo pero cae en el keyframe anterior (hasta 1 s antes)."><input type="checkbox" id="exact" checked> Corte exacto</label>
+    <label title="Corta justo en el cuadro elegido, pero tarda un poco más. Sin esto es instantáneo, aunque puede empezar hasta 1 s antes."><input type="checkbox" id="exact" checked> Corte exacto</label>
     <label><input type="checkbox" id="replace"> Reemplazar el original</label>
     <button class="primary" id="save">Guardar</button>
   </div>
@@ -191,7 +191,7 @@
     const replace = $("replace").checked;
     if (replace) release();
     setBusy(true);
-    setStatus($("exact").checked ? "Guardando (recodificando el video)…" : "Guardando…");
+    setStatus($("exact").checked ? "Guardando, puede tardar un poco…" : "Guardando…");
     chrome.webview.postMessage({
       action: "export",
       start,

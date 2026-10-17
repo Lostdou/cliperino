@@ -20,7 +20,6 @@ public sealed record FfmpegCapabilities(
 
 public static class FfmpegLocator
 {
-    // el build essentials trae nvenc, amf, qsv, ddagrab y libx264
     const string DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 
     static string ManagedPath => Path.Combine(AppPaths.FfmpegDir, "ffmpeg.exe");
@@ -93,27 +92,6 @@ public static class FfmpegProcess
         return process;
     }
 
-    public static async Task<byte[]?> CaptureOutputAsync(string ffmpeg, string args, TimeSpan timeout)
-    {
-        using var process = Start(ffmpeg, args, redirectStdout: true);
-        process.StandardInput.Close();
-        var stderr = process.StandardError.ReadToEndAsync();
-        using var output = new MemoryStream();
-        using var cts = new CancellationTokenSource(timeout);
-        try
-        {
-            await process.StandardOutput.BaseStream.CopyToAsync(output, cts.Token);
-            await process.WaitForExitAsync(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
-            return null;
-        }
-        await stderr;
-        return process.ExitCode == 0 ? output.ToArray() : null;
-    }
-
     public static async Task<(int ExitCode, string Output)> RunAsync(
         string ffmpeg, string args, TimeSpan timeout, Func<Stream, Task>? feedStdin = null)
     {
@@ -126,7 +104,7 @@ public static class FfmpegProcess
         }
         catch (IOException)
         {
-            // ffmpeg cerro stdin antes de tiempo, el codigo de salida dice por que
+            // ffmpeg cerro stdin antes de tiempo
         }
         finally
         {

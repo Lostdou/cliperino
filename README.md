@@ -1,6 +1,6 @@
 # Cliperino
 
-Repetición instantánea para Windows, al estilo de NVIDIA ShadowPlay. Corre en la bandeja del sistema, mantiene un buffer con los últimos segundos de pantalla y audio y, al apretar **Ctrl+Alt+F10**, los guarda como `.mp4`.
+Repetición instantánea para Windows. Corre en la bandeja del sistema, mantiene un buffer con los últimos segundos de pantalla y audio y, al apretar **Ctrl+Alt+F10**, los guarda como `.mp4`.
 
 ## Requisitos
 - Windows 10/11 x64
@@ -24,25 +24,18 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
   ```
 - **ffmpeg** no va dentro del ejecutable: la app ofrece descargarlo la primera vez. Si preferís distribuirlo junto al `.exe`, la app lo encuentra igual, pero el build *essentials* es GPL y hay que incluir su licencia. 
 
-### Publicar un release
-1. Subir `<Version>` en `Cliperino.csproj`, por ejemplo `0.4.0`. El actualizador compara esa versión con el tag del release.
-2. Ejecutar `dotnet publish`.
-3. Crear el release en GitHub con el tag de esa versión (`0.4` o `v0.4.0`) y adjuntar `publish\Cliperino.exe` con ese nombre exacto.
-
-## Actualizaciones
-- **Cuándo busca:** 30 s después de abrirse y luego cada 6 h, consulta el último release de [Lostdou/cliperino](https://github.com/Lostdou/cliperino/releases). También se puede buscar a mano desde **Buscar actualizaciones** en la bandeja.
-- **Qué hace si hay una versión nueva:** muestra una notificación. Al hacer clic pide confirmación, descarga el `Cliperino.exe` nuevo, reemplaza al actual (el viejo queda como `.old` y se borra en el siguiente inicio) y se reinicia.
-- **Nunca se reinicia solo:** la actualización se aplica únicamente cuando la aceptás, así no corta una partida.
-- **Requisitos:** funciona solo con el `.exe` publicado, en una carpeta con permiso de escritura. Se desactiva en Ajustes con "Buscar actualizaciones al iniciar".
-
 ## Uso
 - El ícono de la bandeja cambia de color según el estado: 🔴 grabando, ⚪ desactivado, 🟠 detectando o guardando.
-- **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`. Al hacer clic en la notificación se abre el archivo en el Explorador.
-- **Vista previa** (menú de la bandeja) muestra lo que se está grabando y se actualiza cada ~2 s, con cada segmento nuevo. Sirve para confirmar que se ve el juego y no el escritorio.
-- Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se abre la carpeta y se entra a los **Ajustes**: duración, FPS, bitrate, modo de captura, juegos, monitor, codificador, atajo, carpeta, audio, micrófono, desfase de audio e inicio con Windows.
+- **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`. Al hacer clic en la notificación se abre el editor para recortarlo.
+- Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se edita un clip, se abre la carpeta y se entra a los **Ajustes**.
+- **Ajustes** tiene tres pestañas:
+  - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos, monitor, FPS, audio, micrófono, atajo y carpeta.
+  - **Avanzado:** codificador, bitrate y desfase de audio.
+  - **Extras:** inicio con Windows, actualizaciones y versión.
+- La vista previa de la pestaña Captura decodifica el video en la GPU y solo corre mientras esa pestaña está visible.
 
 ## Editor de clips
-Se abre haciendo clic en la notificación "Clip guardado" o desde **Editar clip…** en la bandeja.
+Se abre haciendo clic en la notificación "Clip guardado" o con **Editar clip…**, en la bandeja o abajo a la izquierda de los Ajustes.
 
 - **Recortar:** con las manijas de la línea de tiempo o con **Inicio aquí / Fin aquí** (teclas **I** / **O**). **P** reproduce solo el tramo elegido y las flechas avanzan cuadro por cuadro (**Shift** + flecha avanza 1 s).
 - **Quitar audio:** deja el clip sin pista de audio.
@@ -50,45 +43,12 @@ Se abre haciendo clic en la notificación "Clip guardado" o desde **Editar clip�
 - **Guardar:** por defecto crea `<clip>_editado.mp4` al lado del original; con **Reemplazar el original** lo sobrescribe.
 - **Requisito:** usa Microsoft Edge WebView2, que ya viene instalado en Windows 10 y 11.
 
-## Modos de captura
-| Modo | Qué graba | Cómo |
-|---|---|---|
-| **Juego** (por defecto) | Solo la imagen del juego, en pantalla completa o en ventana, escalada a la resolución del monitor | Windows.Graphics.Capture (`gfxcapture`, ffmpeg 8+) |
-| **Pantalla** | Todo el monitor elegido, escritorio y otras ventanas incluidos | Desktop Duplication (`ddagrab`) |
-
-- **Qué juego capturar:** en modo juego, Cliperino revisa cada 3 s si está abierto alguno de los ejecutables de la lista **Juegos** (por defecto `VALORANT-Win64-Shipping.exe`).
-- **Si no hay ningún juego abierto,** graba el monitor.
-- **Al abrir o cerrar un juego** cambia solo de modo, pero ese cambio reinicia el buffer.
-- **Si minimizás el juego,** el clip muestra su último frame hasta que volvés.
-- **¿Por qué hace falta el modo juego?** Muchos juegos en pantalla completa mandan la imagen directo al monitor ("independent flip" o planos de overlay) sin pasar por la composición de Windows. En ese caso Desktop Duplication ve el escritorio de abajo en lugar del juego. Pasó con Valorant después de minimizarlo y volver.
-  - NVIDIA no tiene el problema porque captura a nivel de driver (NvFBC).
-  - En OBS, "Captura de juego" se inyecta en el juego, y por eso está en la lista de permitidos de los anticheats.
-  - El modo juego de Cliperino toma la imagen de la ventana del juego (que existe aunque esté en pantalla completa) sin inyectar nada.
 
 ## Audio
 - **Sistema:**
   - *Todo el escritorio* (loopback del dispositivo predeterminado)
   - *Solo el juego*: captura por proceso; requiere Windows 11 y sólo aplica en modo juego. Si no está disponible, usa el escritorio.
 - **Micrófono:** opcional; se mezcla al guardar el clip.
-
-## GPUs soportadas
-Cliperino detecta qué GPU maneja el monitor elegido y captura con `ddagrab` (Desktop Duplication) en esa misma GPU. Después prueba los codificadores en este orden y se queda con el primero que funcione:
-
-| Orden | Pipeline | Cuándo |
-|---|---|---|
-| 1 | Zero-copy en la GPU del monitor: NVENC, AMF o Quick Sync | NVIDIA, AMD (dedicada o APU) o Intel integrada |
-| 2 | Mismo encoder, pasando por memoria del sistema | Si el driver rechaza el zero-copy |
-| 3 | Encoder de otra GPU, vía memoria | Laptops híbridas (pantalla en la iGPU, encoder en la dGPU) |
-| 4 | x264 en CPU | Sin encoder por hardware |
-| 5 | Captura GDI + x264 | Último recurso |
-
-El resultado se guarda en caché y se vuelve a detectar si cambia el hardware, el monitor o la versión de ffmpeg. También se puede forzar desde Ajustes con "Volver a detectar".
-
-### Diagnóstico
-```
-Cliperino.exe --probe
-```
-Lista las GPUs y los monitores, prueba cada pipeline y deja el detalle en `%LOCALAPPDATA%\Cliperino\logs\probe.log`. El log general está en `logs\cliperino.log`.
 
 ## Estructura
 | Carpeta | Contenido |
