@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Cliperino.Capture;
+using Cliperino.Core;
 using Cliperino.UI;
 using Cliperino.Update;
 
@@ -17,10 +18,12 @@ static class Program
         }
 
         Updater.FinishPendingUpdate(args);
+        Lang.Use(AppSettings.Load().Language);
         using var mutex = new Mutex(true, @"Local\Cliperino.SingleInstance", out var isFirstInstance);
         if (!isFirstInstance)
         {
-            MessageBox.Show("Cliperino ya está abierto. Buscá el ícono en la bandeja del sistema.", "Cliperino",
+            MessageBox.Show(Lang.T("Cliperino ya está abierto. Buscá el ícono en la bandeja del sistema.",
+                "Cliperino is already running. Look for its icon in the system tray."), "Cliperino",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 0;
         }

@@ -31,7 +31,7 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 - **Ajustes** tiene tres pestañas:
   - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos, monitor, FPS, audio, micrófono, atajo y carpeta.
   - **Avanzado:** codificador, bitrate y desfase de audio.
-  - **Extras:** inicio con Windows, actualizaciones y versión.
+  - **Extras:** inicio con Windows, actualizaciones, idioma (español o inglés, por defecto el de Windows), versión y enlaces al proyecto.
 - La vista previa de la pestaña Captura solo corre mientras esa pestaña está visible. Si cambiás el monitor, el modo o los juegos, muestra cómo va a quedar antes de guardar, sin cortar la grabación.
 
 ## Editor de clips

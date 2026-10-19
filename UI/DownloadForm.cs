@@ -1,8 +1,9 @@
+using static Cliperino.Core.Lang;
 namespace Cliperino.UI;
 
 sealed class DownloadForm : Form
 {
-    readonly Label status = new() { Text = "Conectando…", AutoSize = true };
+    readonly Label status = new() { Text = T("Conectando…", "Connecting…"), AutoSize = true };
     readonly ProgressBar bar = new() { Width = 380, Style = ProgressBarStyle.Marquee };
     readonly CancellationTokenSource cancellation = new();
 
@@ -20,7 +21,7 @@ sealed class DownloadForm : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Padding = new Padding(12);
 
-        var cancel = new Button { Text = "Cancelar", AutoSize = true, Anchor = AnchorStyles.Right };
+        var cancel = new Button { Text = T("Cancelar", "Cancel"), AutoSize = true, Anchor = AnchorStyles.Right };
         cancel.Click += (_, _) => Close();
         FormClosing += (_, _) => cancellation.Cancel();
 

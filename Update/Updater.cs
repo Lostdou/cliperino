@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -57,10 +58,10 @@ public static class Updater
     public static async Task InstallAndRestartAsync(
         UpdateInfo update, IProgress<(string Text, int? Percent)> progress, CancellationToken cancellation)
     {
-        var current = Environment.ProcessPath ?? throw new InvalidOperationException("No se encontró el ejecutable actual.");
+        var current = Environment.ProcessPath ?? throw new InvalidOperationException(T("No se encontró el ejecutable actual.", "Couldn't find the current executable."));
         var downloaded = current + DownloadSuffix;
         var old = current + OldSuffix;
-        await Downloader.DownloadAsync(update.DownloadUrl, downloaded, $"Descargando {update.Tag}", progress, cancellation);
+        await Downloader.DownloadAsync(update.DownloadUrl, downloaded, T($"Descargando {update.Tag}", $"Downloading {update.Tag}"), progress, cancellation);
 
         TryDelete(old);
         File.Move(current, old);

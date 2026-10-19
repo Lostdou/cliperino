@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Text;
 using Cliperino.Core;
 using Cliperino.Ffmpeg;
@@ -59,7 +60,7 @@ public static class PipelineBuilder
         string input;
         if (parts[0] == "dda")
         {
-            if (monitor == null) throw new InvalidOperationException("No se encontró ningún monitor para capturar.");
+            if (monitor == null) throw new InvalidOperationException(T("No se encontró ningún monitor para capturar.", "No monitor found to capture."));
             var conversion = (parts[1], encoder) switch
             {
                 ("zc", "qsv") => ",hwmap=derive_device=qsv,format=qsv,vpp_qsv=format=nv12",
@@ -121,12 +122,12 @@ public static class PipelineBuilder
     {
         var parts = id.Split('-');
         var encoder = parts[^1];
-        if (encoder == "x264") return parts[0] == "gdi" ? "CPU (x264) con captura GDI" : "CPU (x264)";
+        if (encoder == "x264") return parts[0] == "gdi" ? T("CPU (x264) con captura GDI", "CPU (x264) with GDI capture") : "CPU (x264)";
         var vendor = VendorEncoder.First(kv => kv.Value == encoder).Key;
         var name = encoder switch { "nvenc" => "NVENC", "amf" => "AMF", _ => "Quick Sync" };
-        if (parts[1] == "zc") return $"{name} en {monitor?.Adapter.Name} (zero-copy)";
+        if (parts[1] == "zc") return T($"{name} en {monitor?.Adapter.Name} (zero-copy)", $"{name} on {monitor?.Adapter.Name} (zero-copy)");
         var gpu = gpus.Adapters.FirstOrDefault(a => a.Vendor == vendor)?.Name ?? vendor.ToString();
-        return $"{name} en {gpu} (vía memoria)";
+        return T($"{name} en {gpu} (vía memoria)", $"{name} on {gpu} (via system memory)");
     }
 
     public static async Task<ResolvedPipeline?> ResolveAsync(
@@ -144,7 +145,7 @@ public static class PipelineBuilder
         ResolvedPipeline? result = null;
         foreach (var id in Candidates(monitor, gpus, caps, settings.Encoder))
         {
-            progress?.Report($"Probando {Describe(id, monitor, gpus)}…");
+            progress?.Report(T($"Probando {Describe(id, monitor, gpus)}…", $"Testing {Describe(id, monitor, gpus)}…"));
             var args = BuildArgs(id, monitor, settings.Fps, settings.BitrateMbps);
             var (code, output) = await TestAsync(ffmpeg, args);
             AppendResult(report, id, args, code, output);

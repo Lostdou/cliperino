@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Media;
@@ -43,22 +44,22 @@ sealed class TrayApp : ApplicationContext
 
     public TrayApp()
     {
-        statusItem = new ToolStripMenuItem("Iniciando…") { Enabled = false };
+        statusItem = new ToolStripMenuItem(T("Iniciando…", "Starting…")) { Enabled = false };
         pipelineItem = new ToolStripMenuItem("") { Enabled = false, Visible = false };
-        toggleItem = new ToolStripMenuItem("Activar repetición instantánea", null, async (_, _) => await ToggleAsync());
-        saveItem = new ToolStripMenuItem("Guardar clip", null, async (_, _) => await SaveClipAsync()) { Enabled = false };
-        updateItem = new ToolStripMenuItem("Buscar actualizaciones", null, async (_, _) => await OnUpdateItemAsync());
+        toggleItem = new ToolStripMenuItem(T("Activar repetición instantánea", "Turn on instant replay"), null, async (_, _) => await ToggleAsync());
+        saveItem = new ToolStripMenuItem(T("Guardar clip", "Save clip"), null, async (_, _) => await SaveClipAsync()) { Enabled = false };
+        updateItem = new ToolStripMenuItem(T("Buscar actualizaciones", "Check for updates"), null, async (_, _) => await OnUpdateItemAsync());
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(new ToolStripItem[]
         {
             statusItem, pipelineItem, new ToolStripSeparator(),
             toggleItem, saveItem,
-            new ToolStripMenuItem("Editar clip…", null, (_, _) => PickClipToEdit()),
-            new ToolStripMenuItem("Abrir carpeta de clips", null, (_, _) => OpenClipsFolder()),
-            new ToolStripMenuItem("Ajustes…", null, (_, _) => ShowSettings()),
+            new ToolStripMenuItem(T("Editar clip…", "Edit clip…"), null, (_, _) => PickClipToEdit()),
+            new ToolStripMenuItem(T("Abrir carpeta de clips", "Open clips folder"), null, (_, _) => OpenClipsFolder()),
+            new ToolStripMenuItem(T("Ajustes…", "Settings…"), null, (_, _) => ShowSettings()),
             updateItem,
             new ToolStripSeparator(),
-            new ToolStripMenuItem("Salir", null, (_, _) => ExitApp()),
+            new ToolStripMenuItem(T("Salir", "Exit"), null, (_, _) => ExitApp()),
         });
         ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
@@ -82,17 +83,17 @@ sealed class TrayApp : ApplicationContext
             if (ffmpeg == null)
             {
                 var answer = MessageBox.Show(
-                    "Para grabar, Cliperino necesita ffmpeg y no está instalado.\n\n¿Descargarlo ahora? Son unos 100 MB.",
+                    T("Para grabar, Cliperino necesita ffmpeg y no está instalado.\n\n¿Descargarlo ahora? Son unos 100 MB.", "Cliperino needs ffmpeg to record and it isn't installed.\n\nDownload it now? It's about 100 MB."),
                     "Cliperino", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (answer != DialogResult.Yes)
                 {
-                    SetStatus("ffmpeg no encontrado", idleIcon);
+                    SetStatus(T("ffmpeg no encontrado", "ffmpeg not found"), idleIcon);
                     return;
                 }
                 ffmpeg = await DownloadFfmpegAsync();
                 if (ffmpeg == null)
                 {
-                    SetStatus("ffmpeg no encontrado", idleIcon);
+                    SetStatus(T("ffmpeg no encontrado", "ffmpeg not found"), idleIcon);
                     return;
                 }
             }
@@ -101,21 +102,21 @@ sealed class TrayApp : ApplicationContext
             if (!caps.HasDdagrab) Log.Write("Este ffmpeg no tiene ddagrab (requiere ffmpeg 6+); sólo se podrá usar gdigrab.");
 
             if (settings.StartReplayOnLaunch) await StartReplayAsync(force: false);
-            else SetStatus("Repetición desactivada", idleIcon);
-            if (Updater.JustUpdated) Notify($"Cliperino se actualizó a la versión {Updater.CurrentVersion.ToString(3)}.", ToolTipIcon.Info);
+            else SetStatus(T("Repetición desactivada", "Instant replay off"), idleIcon);
+            if (Updater.JustUpdated) Notify(T($"Cliperino se actualizó a la versión {Updater.CurrentVersion.ToString(3)}.", $"Cliperino was updated to version {Updater.CurrentVersion.ToString(3)}."), ToolTipIcon.Info);
             StartUpdateChecks();
         }
         catch (Exception ex)
         {
             Log.Write($"Error al iniciar: {ex}");
-            SetStatus("No se pudo iniciar", idleIcon);
-            Notify($"Cliperino no pudo iniciar: {ex.Message}", ToolTipIcon.Error);
+            SetStatus(T("No se pudo iniciar", "Couldn't start"), idleIcon);
+            Notify(T($"Cliperino no pudo iniciar: {ex.Message}", $"Cliperino couldn't start: {ex.Message}"), ToolTipIcon.Error);
         }
     }
 
     async Task<string?> DownloadFfmpegAsync()
     {
-        using var window = new DownloadForm("Cliperino – Descargando ffmpeg");
+        using var window = new DownloadForm(T("Cliperino – Descargando ffmpeg", "Cliperino – Downloading ffmpeg"));
         var progress = new Progress<(string Text, int? Percent)>(p =>
         {
             window.Report(p.Text, p.Percent);
@@ -143,14 +144,14 @@ sealed class TrayApp : ApplicationContext
         starting = true;
         try
         {
-            SetStatus("Preparando la grabación…", busyIcon);
+            SetStatus(T("Preparando la grabación…", "Getting ready to record…"), busyIcon);
             var (path, capabilities, current) = (ffmpeg, caps, settings);
             var progress = new Progress<string>(msg => SetStatus(msg, busyIcon));
             var resolved = await Task.Run(() => PipelineBuilder.ResolveAsync(path, capabilities, current, force, progress));
             if (resolved == null)
             {
-                SetStatus("No se pudo empezar a grabar", idleIcon);
-                Notify(@"No se pudo empezar a grabar. Los detalles quedaron en %LOCALAPPDATA%\Cliperino\logs\probe.log", ToolTipIcon.Error);
+                SetStatus(T("No se pudo empezar a grabar", "Couldn't start recording"), idleIcon);
+                Notify(T(@"No se pudo empezar a grabar. Los detalles quedaron en %LOCALAPPDATA%\Cliperino\logs\probe.log", @"Couldn't start recording. Details are in %LOCALAPPDATA%\Cliperino\logs\probe.log"), ToolTipIcon.Error);
                 return;
             }
             settings.Save(); // persiste la cache del pipeline
@@ -169,16 +170,16 @@ sealed class TrayApp : ApplicationContext
             video = new VideoBuffer(path, args, current.ReplaySeconds);
             video.Failed += OnVideoFailed;
             video.Start();
-            var what = window?.Executable ?? "la pantalla";
-            SetStatus($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}", recordingIcon);
+            var what = window?.Executable ?? T("la pantalla", "the screen");
+            SetStatus(T($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}", $"Recording {what}: last {FormatDuration(current.ReplaySeconds)}"), recordingIcon);
             // windows 11 esconde los iconos nuevos de la bandeja, sin aviso no se sabe que esta grabando
-            Notify($"Grabando {what}. Apretá {current.Hotkey} para guardar los últimos {FormatDuration(current.ReplaySeconds)}.", ToolTipIcon.Info);
+            Notify(T($"Grabando {what}. Apretá {current.Hotkey} para guardar los últimos {FormatDuration(current.ReplaySeconds)}.", $"Recording {what}. Press {current.Hotkey} to save the last {FormatDuration(current.ReplaySeconds)}."), ToolTipIcon.Info);
         }
         catch (Exception ex)
         {
             Log.Write($"Error al iniciar la captura: {ex}");
             StopReplay();
-            SetStatus("No se pudo empezar a grabar", idleIcon);
+            SetStatus(T("No se pudo empezar a grabar", "Couldn't start recording"), idleIcon);
             Notify(ex.Message, ToolTipIcon.Error);
         }
         finally
@@ -232,7 +233,7 @@ sealed class TrayApp : ApplicationContext
         }
         sys?.Dispose();
         mic?.Dispose();
-        SetStatus("Repetición desactivada", idleIcon);
+        SetStatus(T("Repetición desactivada", "Instant replay off"), idleIcon);
         UpdateMenu();
     }
 
@@ -244,7 +245,7 @@ sealed class TrayApp : ApplicationContext
         if (window != null)
         {
             failedWindow = window.Handle;
-            Notify($"No se pudo grabar {window.Executable}, así que se graba la pantalla.", ToolTipIcon.Warning);
+            Notify(T($"No se pudo grabar {window.Executable}, así que se graba la pantalla.", $"Couldn't record {window.Executable}, recording the screen instead."), ToolTipIcon.Warning);
             await StartReplayAsync(force: false);
             return;
         }
@@ -252,13 +253,13 @@ sealed class TrayApp : ApplicationContext
         {
             // puede ser un driver actualizado o un cambio de gpu
             retriedAfterFailure = true;
-            Notify("Se cortó la grabación, reintentando…", ToolTipIcon.Warning);
+            Notify(T("Se cortó la grabación, reintentando…", "Recording stopped, retrying…"), ToolTipIcon.Warning);
             await StartReplayAsync(force: true);
         }
         else
         {
-            SetStatus("La grabación se detuvo por un error", idleIcon);
-            Notify($"La grabación se detuvo: {error}", ToolTipIcon.Error);
+            SetStatus(T("La grabación se detuvo por un error", "Recording stopped because of an error"), idleIcon);
+            Notify(T($"La grabación se detuvo: {error}", $"Recording stopped: {error}"), ToolTipIcon.Error);
         }
     }, null);
 
@@ -274,12 +275,12 @@ sealed class TrayApp : ApplicationContext
     {
         if (ffmpeg == null || video == null)
         {
-            Notify("La repetición está apagada. Activala desde el ícono de la bandeja.", ToolTipIcon.Warning);
+            Notify(T("La repetición está apagada. Activala desde el ícono de la bandeja.", "Instant replay is off. Turn it on from the tray icon."), ToolTipIcon.Warning);
             return;
         }
         if (saving)
         {
-            Notify("Esperá, todavía se está guardando el clip anterior.", ToolTipIcon.Info);
+            Notify(T("Esperá, todavía se está guardando el clip anterior.", "Hold on, the previous clip is still being saved."), ToolTipIcon.Info);
             return;
         }
         saving = true;
@@ -290,12 +291,12 @@ sealed class TrayApp : ApplicationContext
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
             var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
             SystemSounds.Asterisk.Play();
-            Notify("Clip guardado. Hacé clic acá para recortarlo.", ToolTipIcon.Info, () => OpenEditor(clip));
+            Notify(T("Clip guardado. Hacé clic acá para recortarlo.", "Clip saved. Click here to trim it."), ToolTipIcon.Info, () => OpenEditor(clip));
         }
         catch (Exception ex)
         {
             Log.Write($"Error guardando el clip: {ex}");
-            Notify($"No se pudo guardar el clip: {ex.Message}", ToolTipIcon.Error);
+            Notify(T($"No se pudo guardar el clip: {ex.Message}", $"Couldn't save the clip: {ex.Message}"), ToolTipIcon.Error);
         }
         finally
         {
@@ -363,7 +364,7 @@ sealed class TrayApp : ApplicationContext
     {
         if (!Updater.CanSelfUpdate)
         {
-            if (manual) Notify("Las actualizaciones solo funcionan con el Cliperino.exe publicado.", ToolTipIcon.Info);
+            if (manual) Notify(T("Las actualizaciones solo funcionan con el Cliperino.exe publicado.", "Updates only work with the published Cliperino.exe."), ToolTipIcon.Info);
             return;
         }
         try
@@ -373,19 +374,19 @@ sealed class TrayApp : ApplicationContext
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             Log.Write($"No se pudo buscar actualizaciones: {ex.Message}");
-            if (manual) Notify("No se pudo buscar actualizaciones. Revisá tu conexión a internet.", ToolTipIcon.Warning);
+            if (manual) Notify(T("No se pudo buscar actualizaciones. Revisá tu conexión a internet.", "Couldn't check for updates. Check your internet connection."), ToolTipIcon.Warning);
             return;
         }
 
-        updateItem.Text = availableUpdate != null ? $"Actualizar a {availableUpdate.Tag}…" : "Buscar actualizaciones";
+        updateItem.Text = availableUpdate != null ? T($"Actualizar a {availableUpdate.Tag}…", $"Update to {availableUpdate.Tag}…") : T("Buscar actualizaciones", "Check for updates");
         if (availableUpdate != null && (manual || availableUpdate.Version != notifiedVersion))
         {
             notifiedVersion = availableUpdate.Version;
-            Notify($"Salió Cliperino {availableUpdate.Tag}. Hacé clic acá para actualizar.", ToolTipIcon.Info, () => _ = ApplyUpdateAsync());
+            Notify(T($"Salió Cliperino {availableUpdate.Tag}. Hacé clic acá para actualizar.", $"Cliperino {availableUpdate.Tag} is out. Click here to update."), ToolTipIcon.Info, () => _ = ApplyUpdateAsync());
         }
         else if (availableUpdate == null && manual)
         {
-            Notify($"Ya tenés la última versión ({Updater.CurrentVersion.ToString(3)}).", ToolTipIcon.Info);
+            Notify(T($"Ya tenés la última versión ({Updater.CurrentVersion.ToString(3)}).", $"You have the latest version ({Updater.CurrentVersion.ToString(3)})."), ToolTipIcon.Info);
         }
     }
 
@@ -395,16 +396,16 @@ sealed class TrayApp : ApplicationContext
         if (update == null || updating) return;
         if (saving)
         {
-            Notify("Esperá a que termine de guardarse el clip.", ToolTipIcon.Info);
+            Notify(T("Esperá a que termine de guardarse el clip.", "Wait for the clip to finish saving."), ToolTipIcon.Info);
             return;
         }
         var answer = MessageBox.Show(
-            $"¿Actualizar Cliperino a la versión {update.Tag}?\n\nCliperino se reinicia y se pierde lo grabado que no hayas guardado como clip.",
+            T($"¿Actualizar Cliperino a la versión {update.Tag}?\n\nCliperino se reinicia y se pierde lo grabado que no hayas guardado como clip.", $"Update Cliperino to version {update.Tag}?\n\nCliperino will restart and anything you haven't saved as a clip will be lost."),
             "Cliperino", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes) return;
 
         updating = true;
-        using var window = new DownloadForm($"Cliperino – Actualizando a {update.Tag}");
+        using var window = new DownloadForm(T($"Cliperino – Actualizando a {update.Tag}", $"Cliperino – Updating to {update.Tag}"));
         var progress = new Progress<(string Text, int? Percent)>(p => window.Report(p.Text, p.Percent));
         window.Show();
         try
@@ -420,7 +421,7 @@ sealed class TrayApp : ApplicationContext
         catch (Exception ex)
         {
             Log.Write($"No se pudo actualizar: {ex}");
-            MessageBox.Show($"No se pudo actualizar: {ex.Message}\n\nPodés descargar la versión nueva desde {update.PageUrl}",
+            MessageBox.Show(T($"No se pudo actualizar: {ex.Message}\n\nPodés descargar la versión nueva desde {update.PageUrl}", $"Couldn't update: {ex.Message}\n\nYou can download the new version from {update.PageUrl}"),
                 "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
@@ -437,7 +438,7 @@ sealed class TrayApp : ApplicationContext
         {
             InitialDirectory = settings.OutputFolder,
             Filter = "Clips (*.mp4)|*.mp4",
-            Title = "Elegí el clip a editar",
+            Title = T("Elegí el clip a editar", "Choose the clip to edit"),
         };
         if (dialog.ShowDialog(owner) == DialogResult.OK) OpenEditor(dialog.FileName);
     }
@@ -451,19 +452,19 @@ sealed class TrayApp : ApplicationContext
     PreviewSource PreviewFor(CaptureChoice choice)
     {
         if (ffmpeg is not { } path || caps == null || choice.Monitor is not { } monitor)
-            return new PreviewSource(null, "", "Falta ffmpeg para ver la vista previa.");
+            return new PreviewSource(null, "", T("Falta ffmpeg para ver la vista previa.", "The preview needs ffmpeg."));
 
         var window = choice.Mode == CaptureMode.Window && caps.HasGfxcapture && caps.HasDdagrab ? GameWindow.Find(choice.Games) : null;
         if (window?.Handle == failedWindow) window = null;
-        var what = window?.Executable ?? "la pantalla";
+        var what = window?.Executable ?? T("la pantalla", "the screen");
         bool recordingThis = video != null && window?.Handle == captureWindow?.Handle &&
             (window != null || string.Equals(pipeline?.Monitor?.DeviceName, monitor.DeviceName, StringComparison.OrdinalIgnoreCase));
         if (recordingThis)
-            return new PreviewSource(() => LivePreview.FromBuffer(path, () => video?.ListSegments() ?? []), "buffer", $"Grabando {what}");
+            return new PreviewSource(() => LivePreview.FromBuffer(path, () => video?.ListSegments() ?? []), "buffer", T($"Grabando {what}", $"Recording {what}"));
 
         var ddagrab = caps.HasDdagrab;
         var handle = window?.Handle ?? IntPtr.Zero;
-        var caption = video != null ? "Así se va a ver cuando guardes." : "La repetición está apagada. Así se vería al activarla.";
+        var caption = video != null ? T("Así se va a ver cuando guardes.", "This is how it will look once you save.") : T("La repetición está apagada. Así se vería al activarla.", "Instant replay is off. This is how it would look.");
         return new PreviewSource(() => LivePreview.FromCapture(path, monitor, handle, ddagrab), $"{monitor.DeviceName}|{handle}", caption);
     }
 
@@ -473,9 +474,9 @@ sealed class TrayApp : ApplicationContext
         else
         {
             Log.Write($"No se pudo registrar el atajo {settings.Hotkey}.");
-            Notify($"El atajo {settings.Hotkey} ya lo usa otra app. Elegí otro en Ajustes.", ToolTipIcon.Warning);
+            Notify(T($"El atajo {settings.Hotkey} ya lo usa otra app. Elegí otro en Ajustes.", $"Another app is already using {settings.Hotkey}. Choose a different one in Settings."), ToolTipIcon.Warning);
         }
-        saveItem.Text = $"Guardar clip ({settings.Hotkey})";
+        saveItem.Text = T($"Guardar clip ({settings.Hotkey})", $"Save clip ({settings.Hotkey})");
     }
 
     void OpenClipsFolder()
@@ -498,7 +499,7 @@ sealed class TrayApp : ApplicationContext
     void SetStatus(string text, Icon icon)
     {
         statusItem.Text = text;
-        pipelineItem.Text = captureWindow != null ? $"{pipeline?.Description} · ventana de {captureWindow.Executable}" : pipeline?.Description ?? "";
+        pipelineItem.Text = captureWindow != null ? T($"{pipeline?.Description} · ventana de {captureWindow.Executable}", $"{pipeline?.Description} · {captureWindow.Executable} window") : pipeline?.Description ?? "";
         pipelineItem.Visible = pipeline != null;
         var tip = $"Cliperino – {text}";
         tray.Text = tip.Length > 127 ? tip[..127] : tip;
@@ -507,7 +508,7 @@ sealed class TrayApp : ApplicationContext
 
     void UpdateMenu()
     {
-        toggleItem.Text = IsRunning ? "Desactivar repetición instantánea" : "Activar repetición instantánea";
+        toggleItem.Text = IsRunning ? T("Desactivar repetición instantánea", "Turn off instant replay") : T("Activar repetición instantánea", "Turn on instant replay");
         saveItem.Enabled = IsRunning;
     }
 

@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Text;
 using NAudio.Wave;
 using Cliperino.Audio;
@@ -19,7 +20,7 @@ public static class ClipSaver
             .Where(s => s.Pts != null)
             .Select(s => (s.Path, s.CreatedUtc, Pts: s.Pts!.Value))
             .ToList();
-        if (segments.Count == 0) throw new InvalidOperationException("Todavía no hay nada grabado, esperá unos segundos.");
+        if (segments.Count == 0) throw new InvalidOperationException(T("Todavía no hay nada grabado, esperá unos segundos.", "Nothing recorded yet, wait a few seconds."));
 
         var reference = segments[^1].Pts;
         var anchor = segments.Min(s => s.CreatedUtc - MpegTs.Elapsed(reference, s.Pts));
@@ -82,7 +83,7 @@ public static class ClipSaver
             {
                 Log.Write($"Falló el armado del clip (código {code}): {log}");
                 var reason = log.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
-                throw new InvalidOperationException($"ffmpeg no pudo armar el clip. {reason}");
+                throw new InvalidOperationException(T($"ffmpeg no pudo armar el clip. {reason}", $"ffmpeg couldn't build the clip. {reason}"));
             }
             Log.Write($"Clip guardado: {output} ({chosen.Count} segmentos)");
             return output;

@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -52,7 +53,7 @@ sealed class EditorForm : Form
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            MessageBox.Show(this, $"El editor necesita Microsoft Edge WebView2 Runtime.\n\nInstalalo desde {WebView2Download} y volvé a abrirlo.",
+            MessageBox.Show(this, T($"El editor necesita Microsoft Edge WebView2 Runtime.\n\nInstalalo desde {WebView2Download} y volvé a abrirlo.", $"The editor needs the Microsoft Edge WebView2 Runtime.\n\nInstall it from {WebView2Download} and open the editor again."),
                 "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Close();
             return;
@@ -88,17 +89,17 @@ sealed class EditorForm : Form
             if (edit.Replace)
             {
                 var hasAudio = await HasAudioAsync();
-                Post(new { type = "done", text = "Listo, se reemplazó el original.", reload = true, url = ClipUrl, hasAudio });
+                Post(new { type = "done", text = T("Listo, se reemplazó el original.", "Done, the original was replaced."), reload = true, url = ClipUrl, hasAudio });
             }
             else
             {
-                Post(new { type = "done", text = $"Listo, se guardó como {Path.GetFileName(output)}", reload = false });
+                Post(new { type = "done", text = T($"Listo, se guardó como {Path.GetFileName(output)}", $"Done, saved as {Path.GetFileName(output)}"), reload = false });
             }
         }
         catch (Exception ex)
         {
             Log.Write($"Error editando {clipPath}: {ex}");
-            Post(new { type = "error", text = $"No se pudo guardar: {ex.Message}", reload = edit.Replace, url = ClipUrl });
+            Post(new { type = "error", text = T($"No se pudo guardar: {ex.Message}", $"Couldn't save: {ex.Message}"), reload = edit.Replace, url = ClipUrl });
         }
         finally
         {
@@ -122,6 +123,7 @@ sealed class EditorForm : Form
     {
         using var stream = typeof(EditorForm).Assembly.GetManifestResourceStream(PageResource)!;
         using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
+        var page = reader.ReadToEnd();
+        return English ? page.Replace("<html lang=\"es\">", "<html lang=\"en\">") : page;
     }
 }

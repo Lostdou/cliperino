@@ -43,20 +43,42 @@
     <button id="playRange" title="Tecla P">Reproducir recorte</button>
     <span class="times" id="times"></span>
     <span class="spacer"></span>
-    <label id="removeAudioLabel"><input type="checkbox" id="removeAudio"> Quitar audio</label>
-    <label title="Corta justo en el cuadro elegido, pero tarda un poco más. Sin esto es instantáneo, aunque puede empezar hasta 1 s antes."><input type="checkbox" id="exact" checked> Corte exacto</label>
-    <label><input type="checkbox" id="replace"> Reemplazar el original</label>
+    <label id="removeAudioLabel"><input type="checkbox" id="removeAudio"> <span id="removeAudioText">Quitar audio</span></label>
+    <label id="exactLabel" title="Corta justo en el cuadro elegido, pero tarda un poco más. Sin esto es instantáneo, aunque puede empezar hasta 1 s antes."><input type="checkbox" id="exact" checked> <span id="exactText">Corte exacto</span></label>
+    <label><input type="checkbox" id="replace"> <span id="replaceText">Reemplazar el original</span></label>
     <button class="primary" id="save">Guardar</button>
   </div>
   <div class="row">
     <span id="status"></span>
     <span class="spacer"></span>
-    <span class="hint">Espacio: reproducir/pausa · ←/→: un cuadro · Shift+←/→: 1 s</span>
+    <span class="hint" id="keysHint">Espacio: reproducir/pausa · ←/→: un cuadro · Shift+←/→: 1 s</span>
     <button id="reveal">Mostrar en carpeta</button>
   </div>
 </div>
 <script>
   const $ = id => document.getElementById(id);
+  const english = document.documentElement.lang === "en";
+  const t = (spanish, englishText) => english ? englishText : spanish;
+  const englishPage = {
+    startHandle: { title: "Trim start" },
+    endHandle: { title: "Trim end" },
+    markStart: { text: "Start here", title: "Key I" },
+    markEnd: { text: "End here", title: "Key O" },
+    playRange: { text: "Play trim", title: "Key P" },
+    removeAudioText: { text: "Remove audio" },
+    exactLabel: { title: "Cuts right on the chosen frame, but takes a bit longer. Without it the cut is instant, but it can start up to 1 s earlier." },
+    exactText: { text: "Exact cut" },
+    replaceText: { text: "Replace the original" },
+    save: { text: "Save" },
+    keysHint: { text: "Space: play/pause · ←/→: one frame · Shift+←/→: 1 s" },
+    reveal: { text: "Show in folder" },
+  };
+  if (english) {
+    for (const [id, { text, title }] of Object.entries(englishPage)) {
+      if (text) $(id).textContent = text;
+      if (title) $(id).title = title;
+    }
+  }
   const video = $("video");
   const timeline = $("timeline");
   const minimumLength = 0.1;
@@ -173,7 +195,7 @@
     $("removeAudio").disabled = !hasAudio;
     $("removeAudio").checked = !hasAudio;
     $("removeAudioLabel").className = hasAudio ? "" : "disabled";
-    $("removeAudioLabel").title = hasAudio ? "" : "Este clip no tiene audio";
+    $("removeAudioLabel").title = hasAudio ? "" : t("Este clip no tiene audio", "This clip has no audio");
   }
 
   function load(url) {
@@ -191,7 +213,7 @@
     const replace = $("replace").checked;
     if (replace) release();
     setBusy(true);
-    setStatus($("exact").checked ? "Guardando, puede tardar un poco…" : "Guardando…");
+    setStatus($("exact").checked ? t("Guardando, puede tardar un poco…", "Saving, this can take a moment…") : t("Guardando…", "Saving…"));
     chrome.webview.postMessage({
       action: "export",
       start,

@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using Cliperino.Capture;
 using Cliperino.Core;
@@ -34,13 +35,13 @@ sealed class SettingsForm : Form
     readonly Label secondsHint = Hint("");
     readonly ComboBox captureMode = Dropdown(380);
     readonly ListBox games = new() { Width = 300, Height = 64, IntegralHeight = false };
-    readonly Button addGame = new() { Text = "Agregar…", AutoSize = true };
-    readonly Button removeGame = new() { Text = "Quitar", AutoSize = true };
+    readonly Button addGame = new() { Text = T("Agregar…", "Add…"), AutoSize = true };
+    readonly Button removeGame = new() { Text = T("Quitar", "Remove"), AutoSize = true };
     readonly ComboBox monitor = Dropdown(380);
     readonly ComboBox fps = Dropdown(90);
-    readonly CheckBox systemAudio = Check("Sistema:");
+    readonly CheckBox systemAudio = Check(T("Sistema:", "System:"));
     readonly ComboBox audioSource = Dropdown(220);
-    readonly CheckBox mic = Check("Micrófono:");
+    readonly CheckBox mic = Check(T("Micrófono:", "Microphone:"));
     readonly ComboBox micDevice = Dropdown(300);
     readonly TextBox hotkeyBox = new() { ReadOnly = true, Width = 160, BackColor = SystemColors.Window };
     readonly TextBox folder = new() { Width = 340 };
@@ -50,9 +51,10 @@ sealed class SettingsForm : Form
     readonly NumericUpDown bitrate = Number(2, 150, 1);
     readonly NumericUpDown offset = Number(-2000, 2000, 10);
 
-    readonly CheckBox startWithWindows = Check("Iniciar con Windows");
-    readonly CheckBox startOnLaunch = Check("Empezar a grabar al abrir Cliperino");
-    readonly CheckBox checkUpdates = Check("Avisarme cuando haya una versión nueva");
+    readonly CheckBox startWithWindows = Check(T("Iniciar con Windows", "Start with Windows"));
+    readonly CheckBox startOnLaunch = Check(T("Empezar a grabar al abrir Cliperino", "Start recording when Cliperino opens"));
+    readonly ComboBox language = Dropdown(200);
+    readonly CheckBox checkUpdates = Check(T("Avisarme cuando haya una versión nueva", "Let me know when there's a new version"));
 
     public AppSettings Result => s;
     public bool ForceRedetect { get; private set; }
@@ -62,7 +64,7 @@ sealed class SettingsForm : Form
     {
         s = settings;
         this.previewSource = previewSource;
-        Text = "Cliperino – Ajustes";
+        Text = T("Cliperino – Ajustes", "Cliperino – Settings");
         Font = SystemFonts.MessageBoxFont ?? Font;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
@@ -77,6 +79,10 @@ sealed class SettingsForm : Form
         startWithWindows.Checked = s.StartWithWindows;
         startOnLaunch.Checked = s.StartReplayOnLaunch;
         checkUpdates.Checked = s.CheckForUpdates;
+        language.Items.Add(new Item(T("Automático (el de Windows)", "Automatic (same as Windows)"), Language.Auto));
+        language.Items.Add(new Item("Español", Language.Spanish));
+        language.Items.Add(new Item("English", Language.English));
+        language.SelectedItem = language.Items.Cast<Item>().First(i => Equals(i.Value, s.Language));
 
         var pages = new[] { CaptureTab(), AdvancedTab(), ExtrasTab() };
         tabs.TabPages.AddRange(pages);
@@ -84,9 +90,9 @@ sealed class SettingsForm : Form
         captureMode.SelectedIndexChanged += (_, _) => UpdatePreview();
         monitor.SelectedIndexChanged += (_, _) => UpdatePreview();
 
-        var save = new Button { Text = "Guardar", AutoSize = true };
+        var save = new Button { Text = T("Guardar", "Save"), AutoSize = true };
         save.Click += OnSave;
-        var cancel = new Button { Text = "Cancelar", AutoSize = true, DialogResult = DialogResult.Cancel };
+        var cancel = new Button { Text = T("Cancelar", "Cancel"), AutoSize = true, DialogResult = DialogResult.Cancel };
         var buttons = new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.RightToLeft, WrapContents = false, AutoSize = true,
@@ -94,7 +100,7 @@ sealed class SettingsForm : Form
         };
         buttons.Controls.AddRange(new Control[] { cancel, save });
 
-        var edit = new Button { Text = "Editar clip…", AutoSize = true, Anchor = AnchorStyles.Left };
+        var edit = new Button { Text = T("Editar clip…", "Edit clip…"), AutoSize = true, Anchor = AnchorStyles.Left };
         edit.Click += (_, _) => editClip(this);
         var footer = new TableLayoutPanel
         {
@@ -134,8 +140,8 @@ sealed class SettingsForm : Form
         seconds.ValueChanged += (_, _) => secondsHint.Text = "= " + TrayApp.FormatDuration((int)seconds.Value);
         secondsHint.Text = "= " + TrayApp.FormatDuration(s.ReplaySeconds);
 
-        captureMode.Items.Add(new Item("Juego: solo la ventana del juego (recomendado)", CaptureMode.Window));
-        captureMode.Items.Add(new Item("Pantalla: todo lo que se ve en el monitor", CaptureMode.Monitor));
+        captureMode.Items.Add(new Item(T("Juego: solo la ventana del juego (recomendado)", "Game: just the game window (recommended)"), CaptureMode.Window));
+        captureMode.Items.Add(new Item(T("Pantalla: todo lo que se ve en el monitor", "Screen: everything on the monitor"), CaptureMode.Monitor));
         captureMode.SelectedItem = captureMode.Items.Cast<Item>().First(i => Equals(i.Value, s.CaptureMode));
 
         games.Items.AddRange(s.GameExecutables.Cast<object>().ToArray());
@@ -154,12 +160,12 @@ sealed class SettingsForm : Form
         fps.SelectedItem = s.Fps;
 
         systemAudio.Checked = s.CaptureSystemAudio;
-        audioSource.Items.Add(new Item("Todo lo que suena en la PC", AudioSource.Desktop));
-        audioSource.Items.Add(new Item("Solo el juego (Windows 11)", AudioSource.Game));
+        audioSource.Items.Add(new Item(T("Todo lo que suena en la PC", "Everything playing on the PC"), AudioSource.Desktop));
+        audioSource.Items.Add(new Item(T("Solo el juego (Windows 11)", "Just the game (Windows 11)"), AudioSource.Game));
         audioSource.SelectedItem = audioSource.Items.Cast<Item>().First(i => Equals(i.Value, s.AudioSource));
 
         mic.Checked = s.CaptureMicrophone;
-        micDevice.Items.Add(new Item("Predeterminado de Windows", null));
+        micDevice.Items.Add(new Item(T("Predeterminado de Windows", "Windows default"), null));
         foreach (var (id, name) in microphones) micDevice.Items.Add(new Item(name, id));
         micDevice.SelectedItem = micDevice.Items.Cast<Item>().FirstOrDefault(i => Equals(i.Value, s.MicrophoneDeviceId)) ?? micDevice.Items[0];
 
@@ -188,14 +194,14 @@ sealed class SettingsForm : Form
     void LoadAdvancedValues(GpuSnapshot gpus, string? activePipeline)
     {
         var vendors = gpus.Adapters.Select(a => a.Vendor).ToHashSet();
-        encoder.Items.Add(new Item("Automático (recomendado)", EncoderPreference.Auto));
+        encoder.Items.Add(new Item(T("Automático (recomendado)", "Automatic (recommended)"), EncoderPreference.Auto));
         if (vendors.Contains(GpuVendor.Nvidia)) encoder.Items.Add(new Item("NVIDIA (NVENC)", EncoderPreference.Nvenc));
         if (vendors.Contains(GpuVendor.Amd)) encoder.Items.Add(new Item("AMD (AMF)", EncoderPreference.Amf));
         if (vendors.Contains(GpuVendor.Intel)) encoder.Items.Add(new Item("Intel (Quick Sync)", EncoderPreference.Qsv));
-        encoder.Items.Add(new Item("Procesador (x264, exige más a la PC)", EncoderPreference.X264));
+        encoder.Items.Add(new Item(T("Procesador (x264, exige más a la PC)", "Processor (x264, heavier on the PC)"), EncoderPreference.X264));
         encoder.SelectedItem = encoder.Items.Cast<Item>().FirstOrDefault(i => Equals(i.Value, s.Encoder)) ?? encoder.Items[0];
 
-        detected.Text = activePipeline ?? "Se elige al empezar a grabar";
+        detected.Text = activePipeline ?? T("Se elige al empezar a grabar", "Chosen when recording starts");
         bitrate.Value = s.BitrateMbps;
         offset.Value = s.AudioOffsetMs;
     }
@@ -209,58 +215,59 @@ sealed class SettingsForm : Form
             {
                 SelectedPath = folder.Text,
                 UseDescriptionForTitle = true,
-                Description = "Carpeta donde se guardan los clips",
+                Description = T("Carpeta donde se guardan los clips", "Folder where clips are saved"),
             };
             if (dialog.ShowDialog(this) == DialogResult.OK) folder.Text = dialog.SelectedPath;
         };
 
         var grid = Grid();
-        Row(grid, "Guardar los últimos (seg):", seconds, secondsHint);
-        Row(grid, "Captura:", captureMode);
-        Row(grid, "Juegos:", games, Stack(addGame, removeGame));
-        Row(grid, "", Hint("Abrí el juego y elegilo con Agregar…"));
+        Row(grid, T("Guardar los últimos (seg):", "Save the last (sec):"), seconds, secondsHint);
+        Row(grid, T("Captura:", "Capture:"), captureMode);
+        Row(grid, T("Juegos:", "Games:"), games, Stack(addGame, removeGame));
+        Row(grid, "", Hint(T("Abrí el juego y elegilo con Agregar…", "Open the game and pick it with Add…")));
         Row(grid, "Monitor:", monitor);
         Row(grid, "FPS:", fps);
         Row(grid, "Audio:", systemAudio, audioSource);
         Row(grid, "", mic, micDevice);
-        Row(grid, "Atajo para guardar:", hotkeyBox, Hint("Hacé clic acá y apretá las teclas"));
-        Row(grid, "Carpeta de clips:", folder, browse);
+        Row(grid, T("Atajo para guardar:", "Save shortcut:"), hotkeyBox, Hint(T("Hacé clic acá y apretá las teclas", "Click here and press the keys")));
+        Row(grid, T("Carpeta de clips:", "Clips folder:"), folder, browse);
 
-        var previewPanel = Stack(new Label { Text = "Vista previa en vivo", AutoSize = true }, preview, previewCaption);
+        var previewPanel = Stack(new Label { Text = T("Vista previa en vivo", "Live preview"), AutoSize = true }, preview, previewCaption);
         previewPanel.Margin = new Padding(16, 0, 0, 0);
         var layout = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         layout.Controls.Add(grid);
         layout.Controls.Add(previewPanel);
-        return Page("Captura", layout);
+        return Page(T("Captura", "Capture"), layout);
     }
 
     TabPage AdvancedTab()
     {
-        var redetect = new Button { Text = "Volver a detectar", AutoSize = true };
+        var redetect = new Button { Text = T("Volver a detectar", "Detect again"), AutoSize = true };
         redetect.Click += (_, _) =>
         {
             ForceRedetect = true;
-            detected.Text = "Se vuelve a elegir al guardar";
+            detected.Text = T("Se vuelve a elegir al guardar", "It will be chosen again when you save");
         };
 
         var grid = Grid();
-        Row(grid, "Codificador:", encoder);
-        Row(grid, "En uso:", detected, redetect);
+        Row(grid, T("Codificador:", "Encoder:"), encoder);
+        Row(grid, T("En uso:", "In use:"), detected, redetect);
         Row(grid, "Bitrate (Mbps):", bitrate);
-        Row(grid, "Desfase de audio (ms):", offset, Hint("Subilo si el sonido llega antes que la imagen"));
-        return Page("Avanzado", grid);
+        Row(grid, T("Desfase de audio (ms):", "Audio offset (ms):"), offset, Hint(T("Subilo si el sonido llega antes que la imagen", "Raise it if the sound comes before the picture")));
+        return Page(T("Avanzado", "Advanced"), grid);
     }
 
     TabPage ExtrasTab()
     {
         var grid = Grid();
-        Row(grid, "Inicio:", startWithWindows);
+        Row(grid, T("Inicio:", "Startup:"), startWithWindows);
         Row(grid, "", startOnLaunch);
-        Row(grid, "Actualizaciones:", checkUpdates);
-        Row(grid, "Versión:", new Label { Text = Updater.CurrentVersion.ToString(3), AutoSize = true, Anchor = AnchorStyles.Left });
-        Row(grid, "Proyecto:", Link("Mirá el proyecto en GitHub", "Abrir GitHub", RepoUrl));
-        Row(grid, "", Link("¿Encontraste un bug o tenés una idea?", "Contarlo", RepoUrl + "/issues"));
-        Row(grid, "", Link("Seguime en Twitter", "@nosoylostdou", TwitterUrl));
+        Row(grid, T("Actualizaciones:", "Updates:"), checkUpdates);
+        Row(grid, T("Idioma:", "Language:"), language, Hint(T("Se aplica al reiniciar Cliperino", "Applies after restarting Cliperino")));
+        Row(grid, T("Versión:", "Version:"), new Label { Text = Updater.CurrentVersion.ToString(3), AutoSize = true, Anchor = AnchorStyles.Left });
+        Row(grid, T("Proyecto:", "Project:"), Link(T("Mirá el proyecto en GitHub", "Check out the project on GitHub"), T("Abrir GitHub", "Open GitHub"), RepoUrl));
+        Row(grid, "", Link(T("¿Encontraste un bug o tenés una idea?", "Found a bug or have an idea?"), T("Contarlo", "Tell me"), RepoUrl + "/issues"));
+        Row(grid, "", Link(T("Seguime en Twitter", "Follow me on Twitter"), "@nosoylostdou", TwitterUrl));
         return Page("Extras", grid);
     }
 
@@ -349,14 +356,14 @@ sealed class SettingsForm : Form
             menu.Items.Add(item);
         }
         if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Buscar ejecutable…", null, (_, _) => BrowseGame());
+        menu.Items.Add(T("Buscar ejecutable…", "Browse for executable…"), null, (_, _) => BrowseGame());
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(anchor, new Point(0, anchor.Height));
     }
 
     void BrowseGame()
     {
-        using var dialog = new OpenFileDialog { Filter = "Ejecutables (*.exe)|*.exe", Title = "Elegí el ejecutable del juego" };
+        using var dialog = new OpenFileDialog { Filter = T("Ejecutables (*.exe)|*.exe", "Executables (*.exe)|*.exe"), Title = T("Elegí el ejecutable del juego", "Choose the game's executable") };
         if (dialog.ShowDialog(this) == DialogResult.OK) AddGame(Path.GetFileName(dialog.FileName));
     }
 
@@ -371,12 +378,12 @@ sealed class SettingsForm : Form
     {
         if (!HotkeyWindow.TryParse(hotkeyBox.Text, out _, out _))
         {
-            MessageBox.Show(this, "Ese atajo no sirve, probá con otra combinación.", "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, T("Ese atajo no sirve, probá con otra combinación.", "That shortcut doesn't work, try another combination."), "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         if (string.IsNullOrWhiteSpace(folder.Text))
         {
-            MessageBox.Show(this, "Elegí una carpeta para los clips.", "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, T("Elegí una carpeta para los clips.", "Choose a folder for your clips."), "Cliperino", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -397,6 +404,7 @@ sealed class SettingsForm : Form
         s.StartWithWindows = startWithWindows.Checked;
         s.StartReplayOnLaunch = startOnLaunch.Checked;
         s.CheckForUpdates = checkUpdates.Checked;
+        s.Language = (Language)((Item)language.SelectedItem!).Value!;
         DialogResult = DialogResult.OK;
     }
 

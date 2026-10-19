@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 namespace Cliperino.Core;
 
 public static class Downloader
@@ -33,7 +34,7 @@ public static class Downloader
                 if (mark == lastMark) continue;
                 lastMark = mark;
                 progress.Report(total > 0
-                    ? ($"{label}… {done >> 20} de {total.Value >> 20} MB", mark)
+                    ? (T($"{label}… {done >> 20} de {total.Value >> 20} MB", $"{label}… {done >> 20} of {total.Value >> 20} MB"), mark)
                     : ($"{label}… {mark} MB", null));
             }
         }

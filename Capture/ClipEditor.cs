@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Globalization;
 using Cliperino.Ffmpeg;
 
@@ -15,13 +16,13 @@ public static class ClipEditor
     public static async Task<string> ExportAsync(string ffmpeg, string input, ClipEdit edit, string exactEncoderArgs)
     {
         var duration = edit.End - edit.Start;
-        if (duration < MinimumDuration) throw new InvalidOperationException("El recorte es demasiado corto.");
+        if (duration < MinimumDuration) throw new InvalidOperationException(T("El recorte es demasiado corto.", "The trim is too short."));
 
         var directory = Path.GetDirectoryName(input)!;
         var name = Path.GetFileNameWithoutExtension(input);
         var target = edit.Replace
             ? Path.Combine(directory, $"{name}.editando.mp4")
-            : ClipSaver.UniquePath(Path.Combine(directory, $"{name}_editado.mp4"));
+            : ClipSaver.UniquePath(Path.Combine(directory, T($"{name}_editado.mp4", $"{name}_edited.mp4")));
         var video = edit.Exact ? exactEncoderArgs : "-c:v copy";
         var audio = edit.RemoveAudio ? "-an" : edit.Exact ? "-c:a aac -b:a 192k" : "-c:a copy";
         var args = $"-hide_banner -loglevel error -nostdin -y -ss {Seconds(edit.Start)} -i \"{input}\" -t {Seconds(duration)} " +
@@ -32,7 +33,7 @@ public static class ClipEditor
         {
             TryDelete(target);
             var reason = log.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
-            throw new InvalidOperationException(reason ?? $"ffmpeg terminó con código {code}.");
+            throw new InvalidOperationException(reason ?? T($"ffmpeg terminó con código {code}.", $"ffmpeg exited with code {code}."));
         }
         if (!edit.Replace) return target;
 

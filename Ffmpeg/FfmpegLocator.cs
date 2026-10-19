@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
@@ -40,13 +41,13 @@ public static class FfmpegLocator
         Directory.CreateDirectory(AppPaths.FfmpegDir);
         var zipPath = Path.Combine(AppPaths.FfmpegDir, "ffmpeg.zip");
 
-        await Downloader.DownloadAsync(DownloadUrl, zipPath, "Descargando ffmpeg", progress, cancellation);
+        await Downloader.DownloadAsync(DownloadUrl, zipPath, T("Descargando ffmpeg", "Downloading ffmpeg"), progress, cancellation);
 
-        progress.Report(("Descomprimiendo ffmpeg…", 100));
+        progress.Report((T("Descomprimiendo ffmpeg…", "Extracting ffmpeg…"), 100));
         using (var zip = ZipFile.OpenRead(zipPath))
         {
             var entry = zip.Entries.FirstOrDefault(e => e.FullName.EndsWith("/bin/ffmpeg.exe", StringComparison.OrdinalIgnoreCase))
-                ?? throw new InvalidDataException("El zip descargado no contiene bin/ffmpeg.exe.");
+                ?? throw new InvalidDataException(T("El zip descargado no contiene bin/ffmpeg.exe.", "The downloaded zip doesn't contain bin/ffmpeg.exe."));
             entry.ExtractToFile(ManagedPath, overwrite: true);
         }
         File.Delete(zipPath);
@@ -87,7 +88,7 @@ public static class FfmpegProcess
             RedirectStandardError = true,
             RedirectStandardOutput = redirectStdout,
         };
-        var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo iniciar ffmpeg.");
+        var process = Process.Start(psi) ?? throw new InvalidOperationException(T("No se pudo iniciar ffmpeg.", "Couldn't start ffmpeg."));
         JobObject.Assign(process);
         return process;
     }

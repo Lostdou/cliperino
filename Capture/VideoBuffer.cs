@@ -1,3 +1,4 @@
+using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using Cliperino.Core;
 using Cliperino.Ffmpeg;
@@ -79,7 +80,7 @@ public sealed class VideoBuffer : IDisposable
         if (DateTime.UtcNow - launchedUtc > TimeSpan.FromMinutes(1)) restarts = 0;
         if (++restarts > 3)
         {
-            Failed?.Invoke(errors.Length > 0 ? errors : $"ffmpeg terminó con código {exitCode}");
+            Failed?.Invoke(errors.Length > 0 ? errors : T($"ffmpeg terminó con código {exitCode}", $"ffmpeg exited with code {exitCode}"));
             return;
         }
         Task.Delay(2000).ContinueWith(_ =>
