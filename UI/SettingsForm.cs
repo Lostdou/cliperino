@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Cliperino.Capture;
 using Cliperino.Core;
 using Cliperino.Update;
@@ -15,6 +16,8 @@ sealed class SettingsForm : Form
         public override string ToString() => Text;
     }
 
+    const string RepoUrl = "https://github.com/Lostdou/cliperino";
+    const string TwitterUrl = "https://x.com/nosoylostdou";
     static readonly Size PreviewSize = new(480, 270);
 
     readonly AppSettings s;
@@ -255,7 +258,18 @@ sealed class SettingsForm : Form
         Row(grid, "", startOnLaunch);
         Row(grid, "Actualizaciones:", checkUpdates);
         Row(grid, "Versión:", new Label { Text = Updater.CurrentVersion.ToString(3), AutoSize = true, Anchor = AnchorStyles.Left });
+        Row(grid, "Proyecto:", Link("Mirá el proyecto en GitHub", "Abrir GitHub", RepoUrl));
+        Row(grid, "", Link("¿Encontraste un bug o tenés una idea?", "Contarlo", RepoUrl + "/issues"));
+        Row(grid, "", Link("Seguime en Twitter", "@nosoylostdou", TwitterUrl));
         return Page("Extras", grid);
+    }
+
+    static Control Link(string text, string button, string url)
+    {
+        var open = new Button { Text = button, AutoSize = true };
+        open.Click += (_, _) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        var label = new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, MinimumSize = new Size(260, 0) };
+        return Flow([label, open]);
     }
 
     void FitTabs(TabPage[] pages)

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cliperino - Repetición instantánea para Windows</title>
+<meta name="description" content="Cliperino graba en segundo plano y guarda los últimos segundos de tu partida con un atajo. Gratis, liviano y para cualquier GPU.">
+<link rel="icon" href="icon.ico">
+<style>
+  :root {
+    --bg: #111214;
+    --surface: #1a1b1f;
+    --border: #2a2c31;
+    --text: #e8e8ea;
+    --muted: #9a9ca3;
+    --accent: #e5484d;
+    --accent-hover: #f05a5f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a { color: var(--accent); }
+  main, header, footer { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  header { padding-top: 72px; padding-bottom: 56px; text-align: center; }
+  .logo { display: inline-flex; align-items: center; gap: 12px; font-size: 40px; font-weight: 700; margin: 0; }
+  .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; }
+  .tagline { font-size: 20px; color: var(--muted); max-width: 640px; margin: 16px auto 32px; }
+
+  .download {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 18px;
+    padding: 14px 32px;
+    border-radius: 8px;
+  }
+  .download:hover { background: var(--accent-hover); }
+  .download-note { color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .download-note a { color: var(--muted); }
+
+  section { padding: 48px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 28px; margin: 0 0 24px; }
+  h3 { font-size: 18px; margin: 0 0 6px; }
+
+  .features { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .features .card { grid-column: span 2; }
+  .features .card:nth-child(n + 4) { grid-column: span 3; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .card p { margin: 0; color: var(--muted); }
+
+  figure { margin: 0 0 32px; }
+  figure img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border); display: block; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+  ol.steps { padding-left: 22px; margin: 0; }
+  ol.steps li { margin-bottom: 10px; }
+  kbd {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font: 14px "Segoe UI", sans-serif;
+  }
+
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--muted); margin: 10px 0 0; }
+
+  footer { padding-top: 32px; padding-bottom: 48px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; justify-content: space-between; }
+  footer nav { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+  .hits { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 760px) {
+    .features { grid-template-columns: 1fr; }
+    .features .card, .features .card:nth-child(n + 4) { grid-column: auto; }
+  }
+
+  @media (max-width: 600px) {
+    header { padding-top: 48px; }
+    .logo { font-size: 32px; }
+    .tagline { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="logo"><span class="dot"></span>Cliperino</h1>
+  <p class="tagline">Graba en segundo plano y, cuando pasa algo bueno, apretás una tecla y te guarda los últimos segundos.</p>
+  <a class="download" href="https://github.com/Lostdou/cliperino/releases/latest/download/Cliperino-Setup.exe">Descargar para Windows</a>
+  <p class="download-note">
+    Para Windows 10 y 11 (64 bits) ·
+    <a href="https://github.com/Lostdou/cliperino/releases/latest/download/Cliperino.exe">versión portable</a> ·
+    <a href="https://github.com/Lostdou/cliperino/releases">todas las versiones</a>
+  </p>
+</header>
+
+<main>
+  <section>
+    <h2>Qué hace</h2>
+    <div class="features">
+      <div class="card">
+        <h3>Guarda lo que ya pasó</h3>
+        <p>Siempre tiene los últimos segundos o minutos listos. Apretás el atajo y queda un .mp4 en tu carpeta de clips.</p>
+      </div>
+      <div class="card">
+        <h3>Cualquier GPU, o incluso sin una</h3>
+        <p>Usa el codificador de tu placa: NVIDIA, AMD o Intel, dedicada o integrada. Si no hay, usa el procesador.</p>
+      </div>
+      <div class="card">
+        <h3>Solo el juego</h3>
+        <p>Graba la ventana del juego o la pantalla entera, y el audio de toda la PC o solo el del juego. El micrófono es opcional.</p>
+      </div>
+      <div class="card">
+        <h3>Editor incluido</h3>
+        <p>Recortá el clip o sacale el audio en segundos, sin abrir otro programa.</p>
+      </div>
+      <div class="card">
+        <h3>Liviano</h3>
+        <p>Vive en la bandeja del sistema y casi no se nota mientras jugás.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Así se ve</h2>
+    <figure>
+      <img src="img/ajustes.png" alt="Ventana de ajustes de Cliperino con la vista previa en vivo del juego" width="1117" height="468" loading="lazy">
+      <figcaption>Ajustes con vista previa en vivo: ves lo que se está grabando antes de guardar nada.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/editor.png" alt="Editor de clips de Cliperino con la línea de tiempo para recortar" width="1102" height="792" loading="lazy">
+      <figcaption>El editor: marcás el inicio y el fin, y listo.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Cómo se usa</h2>
+    <ol class="steps">
+      <li>Descargá e instalá Cliperino. La primera vez te ofrece bajar ffmpeg (unos 100 MB), que es lo que usa para grabar.</li>
+      <li>Abrí tu juego. Cliperino queda en la bandeja del sistema, al lado del reloj, grabando.</li>
+      <li>Cuando pase algo que valga la pena, apretá <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>F10</kbd>. El clip queda en <code>Videos\Cliperino</code>.</li>
+      <li>Hacé clic en el aviso de "Clip guardado" para recortarlo, o cambiá el atajo y la duración desde los Ajustes.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Preguntas frecuentes</h2>
+    <details>
+      <summary>Windows dice que "protegió el equipo". ¿Es seguro?</summary>
+      <p>Aparece porque Cliperino es un proyecto chico y no está firmado digitalmente. Tocá "Más información" y después "Ejecutar de todas formas". El código está completo en GitHub para quien quiera revisarlo.</p>
+    </details>
+    <details>
+      <summary>¿Cuál descargo, el instalador o la portable?</summary>
+      <p>El instalador, si no sabés cuál elegir: lo deja en su lugar, crea el acceso en el menú Inicio y se desinstala desde la configuración de Windows. La portable es un solo .exe que podés llevar donde quieras.</p>
+    </details>
+    <details>
+      <summary>¿Afecta el rendimiento del juego?</summary>
+      <p>Muy poco: la grabación la hace la placa de video y el buffer se guarda en el disco en pedazos de 2 segundos.</p>
+    </details>
+    <details>
+      <summary>Encontré un error o tengo una idea</summary>
+      <p>Contalo en los <a href="https://github.com/Lostdou/cliperino/issues">issues de GitHub</a>. También se puede abrir desde Ajustes → Extras.</p>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <span>Hecho con ❤ por <a href="https://x.com/nosoylostdou">lostdou</a></span>
+  <nav>
+    <a href="https://github.com/Lostdou/cliperino">GitHub</a>
+    <a href="https://github.com/Lostdou/cliperino/issues">Reportar un problema</a>
+  </nav>
+  <img class="hits" src="https://hits.sh/cliperino.lostdou.dev.svg" alt="" width="1" height="1" aria-hidden="true">
+</footer>
+
+</body>
+</html>
