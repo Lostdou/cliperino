@@ -7,9 +7,11 @@ using Cliperino.Ffmpeg;
 
 namespace Cliperino.Capture;
 
+public sealed record SavedClip(string Path, TimeSpan Duration);
+
 public static class ClipSaver
 {
-    public static async Task<string> SaveAsync(
+    public static async Task<SavedClip> SaveAsync(
         string ffmpeg, VideoBuffer video, AudioRingBuffer? systemAudio, AudioRingBuffer? micAudio, AppSettings settings)
     {
         var endUtc = DateTime.UtcNow;
@@ -86,7 +88,7 @@ public static class ClipSaver
                 throw new InvalidOperationException(T($"ffmpeg no pudo armar el clip. {reason}", $"ffmpeg couldn't build the clip. {reason}"));
             }
             Log.Write($"Clip guardado: {output} ({chosen.Count} segmentos)");
-            return output;
+            return new SavedClip(output, finishUtc - startUtc);
         }
         finally
         {

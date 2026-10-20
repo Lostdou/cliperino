@@ -44,6 +44,7 @@ sealed class SettingsForm : Form
     readonly CheckBox mic = Check(T("Micrófono:", "Microphone:"));
     readonly ComboBox micDevice = Dropdown(300);
     readonly TextBox hotkeyBox = new() { ReadOnly = true, Width = 160, BackColor = SystemColors.Window };
+    readonly ComboBox feedback = Dropdown(220);
     readonly TextBox folder = new() { Width = 340 };
 
     readonly ComboBox encoder = Dropdown(380);
@@ -64,7 +65,7 @@ sealed class SettingsForm : Form
     {
         s = settings;
         this.previewSource = previewSource;
-        Text = T("Cliperino – Ajustes", "Cliperino – Settings");
+        Text = T("Cliperino - Ajustes", "Cliperino - Settings");
         Font = SystemFonts.MessageBoxFont ?? Font;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
@@ -182,6 +183,9 @@ sealed class SettingsForm : Form
         UpdateEnabled();
 
         hotkeyBox.Text = s.Hotkey;
+        feedback.Items.Add(new Item(T("En pantalla", "On screen"), FeedbackStyle.Overlay));
+        feedback.Items.Add(new Item(T("Sonido de Windows", "Windows sound"), FeedbackStyle.Sound));
+        feedback.SelectedItem = feedback.Items.Cast<Item>().First(i => Equals(i.Value, s.Feedback));
         hotkeyBox.KeyDown += (_, e) =>
         {
             e.SuppressKeyPress = true;
@@ -230,6 +234,7 @@ sealed class SettingsForm : Form
         Row(grid, "Audio:", systemAudio, audioSource);
         Row(grid, "", mic, micDevice);
         Row(grid, T("Atajo para guardar:", "Save shortcut:"), hotkeyBox, Hint(T("Hacé clic acá y apretá las teclas", "Click here and press the keys")));
+        Row(grid, T("Aviso:", "Notice:"), feedback, Hint(T("Al activar, desactivar y guardar un clip", "When turning on, off and saving a clip")));
         Row(grid, T("Carpeta de clips:", "Clips folder:"), folder, browse);
 
         var previewPanel = Stack(new Label { Text = T("Vista previa en vivo", "Live preview"), AutoSize = true }, preview, previewCaption);
@@ -397,6 +402,7 @@ sealed class SettingsForm : Form
         s.CaptureMicrophone = mic.Checked;
         s.MicrophoneDeviceId = (micDevice.SelectedItem as Item)?.Value as string;
         s.Hotkey = hotkeyBox.Text;
+        s.Feedback = (FeedbackStyle)((Item)feedback.SelectedItem!).Value!;
         s.OutputFolder = folder.Text.Trim();
         s.Encoder = (EncoderPreference)((Item)encoder.SelectedItem!).Value!;
         s.BitrateMbps = (int)bitrate.Value;

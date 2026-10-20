@@ -21,6 +21,7 @@ sealed class TrayApp : ApplicationContext
 
     readonly ToolStripMenuItem statusItem, pipelineItem, toggleItem, saveItem, updateItem;
     readonly HotkeyWindow hotkey = new();
+    readonly OverlayToast overlay = new();
     readonly Icon idleIcon = MakeIcon(Color.Gray), recordingIcon = MakeIcon(Color.Red), busyIcon = MakeIcon(Color.Orange);
     readonly SynchronizationContext ui;
     AppSettings settings = AppSettings.Load();
@@ -98,7 +99,7 @@ sealed class TrayApp : ApplicationContext
                 }
             }
             caps = await FfmpegLocator.InspectAsync(ffmpeg);
-            Log.Write($"ffmpeg: {ffmpeg} – {caps}");
+            Log.Write($"ffmpeg: {ffmpeg} - {caps}");
             if (!caps.HasDdagrab) Log.Write("Este ffmpeg no tiene ddagrab (requiere ffmpeg 6+); sólo se podrá usar gdigrab.");
 
             if (settings.StartReplayOnLaunch) await StartReplayAsync(force: false);
@@ -116,7 +117,7 @@ sealed class TrayApp : ApplicationContext
 
     async Task<string?> DownloadFfmpegAsync()
     {
-        using var window = new DownloadForm(T("Cliperino – Descargando ffmpeg", "Cliperino – Downloading ffmpeg"));
+        using var window = new DownloadForm(T("Cliperino - Descargando ffmpeg", "Cliperino - Downloading ffmpeg"));
         var progress = new Progress<(string Text, int? Percent)>(p =>
         {
             window.Report(p.Text, p.Percent);
@@ -173,7 +174,9 @@ sealed class TrayApp : ApplicationContext
             var what = window?.Executable ?? T("la pantalla", "the screen");
             SetStatus(T($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}", $"Recording {what}: last {FormatDuration(current.ReplaySeconds)}"), recordingIcon);
             // windows 11 esconde los iconos nuevos de la bandeja, sin aviso no se sabe que esta grabando
-            Notify(T($"Grabando {what}. Apretá {current.Hotkey} para guardar los últimos {FormatDuration(current.ReplaySeconds)}.", $"Recording {what}. Press {current.Hotkey} to save the last {FormatDuration(current.ReplaySeconds)}."), ToolTipIcon.Info);
+            Feedback(T("Repetición instantánea activada", "Instant replay on"),
+                T($"{what} · {current.Hotkey} guarda un clip", $"{what} · {current.Hotkey} saves a clip"),
+                () => Notify(T($"Grabando {what}. Apretá {current.Hotkey} para guardar los últimos {FormatDuration(current.ReplaySeconds)}.", $"Recording {what}. Press {current.Hotkey} to save the last {FormatDuration(current.ReplaySeconds)}."), ToolTipIcon.Info));
         }
         catch (Exception ex)
         {
@@ -267,7 +270,12 @@ sealed class TrayApp : ApplicationContext
     {
         retriedAfterFailure = false;
         failedWindow = IntPtr.Zero;
-        if (IsRunning) StopReplay();
+        if (IsRunning)
+        {
+            StopReplay();
+            var off = T("Repetición instantánea desactivada", "Instant replay off");
+            Feedback(off, null, () => Notify(off, ToolTipIcon.Info));
+        }
         else await StartReplayAsync(force: false);
     }
 
@@ -290,8 +298,11 @@ sealed class TrayApp : ApplicationContext
             var (path, v, s) = (ffmpeg, video, settings.Clone());
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
             var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
-            SystemSounds.Asterisk.Play();
-            Notify(T("Clip guardado. Hacé clic acá para recortarlo.", "Clip saved. Click here to trim it."), ToolTipIcon.Info, () => OpenEditor(clip));
+            Feedback($"{T("Clip guardado", "Clip saved")} · {FormatDuration((int)Math.Round(clip.Duration.TotalSeconds))}", null, () =>
+            {
+                SystemSounds.Asterisk.Play();
+                Notify(T("Clip guardado. Hacé clic acá para recortarlo.", "Clip saved. Click here to trim it."), ToolTipIcon.Info, () => OpenEditor(clip.Path));
+            });
         }
         catch (Exception ex)
         {
@@ -405,7 +416,7 @@ sealed class TrayApp : ApplicationContext
         if (answer != DialogResult.Yes) return;
 
         updating = true;
-        using var window = new DownloadForm(T($"Cliperino – Actualizando a {update.Tag}", $"Cliperino – Updating to {update.Tag}"));
+        using var window = new DownloadForm(T($"Cliperino - Actualizando a {update.Tag}", $"Cliperino - Updating to {update.Tag}"));
         var progress = new Progress<(string Text, int? Percent)>(p => window.Report(p.Text, p.Percent));
         window.Show();
         try
@@ -491,6 +502,7 @@ sealed class TrayApp : ApplicationContext
         updateTimer.Dispose();
         StopReplay();
         hotkey.Dispose();
+        overlay.Dispose();
         tray.Visible = false;
         tray.Dispose();
         ExitThread();
@@ -501,7 +513,7 @@ sealed class TrayApp : ApplicationContext
         statusItem.Text = text;
         pipelineItem.Text = captureWindow != null ? T($"{pipeline?.Description} · ventana de {captureWindow.Executable}", $"{pipeline?.Description} · {captureWindow.Executable} window") : pipeline?.Description ?? "";
         pipelineItem.Visible = pipeline != null;
-        var tip = $"Cliperino – {text}";
+        var tip = $"Cliperino - {text}";
         tray.Text = tip.Length > 127 ? tip[..127] : tip;
         tray.Icon = icon;
     }
@@ -510,6 +522,12 @@ sealed class TrayApp : ApplicationContext
     {
         toggleItem.Text = IsRunning ? T("Desactivar repetición instantánea", "Turn off instant replay") : T("Activar repetición instantánea", "Turn on instant replay");
         saveItem.Enabled = IsRunning;
+    }
+
+    void Feedback(string title, string? detail, Action sound)
+    {
+        if (settings.Feedback == FeedbackStyle.Overlay) overlay.Show(title, detail);
+        else sound();
     }
 
     void Notify(string text, ToolTipIcon icon, Action? onClick = null)

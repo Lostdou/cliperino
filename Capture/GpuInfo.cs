@@ -12,7 +12,7 @@ public sealed record GpuAdapter(int Index, string Name, GpuVendor Vendor, uint V
 public sealed record MonitorInfo(string DeviceName, Rectangle Bounds, GpuAdapter Adapter, int OutputIndex, bool IsPrimary)
 {
     public string Label =>
-        $"{(IsPrimary ? T("Principal", "Primary") : DeviceName.Replace(@"\\.\", ""))} – {Bounds.Width}x{Bounds.Height} ({Adapter.Name})";
+        $"{(IsPrimary ? T("Principal", "Primary") : DeviceName.Replace(@"\\.\", ""))} - {Bounds.Width}x{Bounds.Height} ({Adapter.Name})";
 }
 
 public sealed record GpuSnapshot(IReadOnlyList<GpuAdapter> Adapters, IReadOnlyList<MonitorInfo> Monitors)

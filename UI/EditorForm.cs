@@ -31,7 +31,7 @@ sealed class EditorForm : Form
         this.ffmpeg = ffmpeg;
         this.clipPath = clipPath;
         this.exactEncoderArgs = exactEncoderArgs;
-        Text = $"Cliperino – {Path.GetFileName(clipPath)}";
+        Text = $"Cliperino - {Path.GetFileName(clipPath)}";
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(1100, 760);

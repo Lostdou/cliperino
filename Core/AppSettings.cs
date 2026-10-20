@@ -12,6 +12,8 @@ public enum AudioSource { Desktop, Game }
 
 public enum Language { Auto, Spanish, English }
 
+public enum FeedbackStyle { Overlay, Sound }
+
 public sealed class AppSettings
 {
     public int ReplaySeconds { get; set; } = 60;
@@ -32,6 +34,7 @@ public sealed class AppSettings
     public bool StartReplayOnLaunch { get; set; } = true;
     public bool CheckForUpdates { get; set; } = true;
     public Language Language { get; set; } = Language.Auto;
+    public FeedbackStyle Feedback { get; set; } = FeedbackStyle.Overlay;
 
     public string? CachedPipelineId { get; set; }
     public string? PipelineFingerprint { get; set; }

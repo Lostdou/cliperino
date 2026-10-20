@@ -31,7 +31,7 @@ Produces `publish\Cliperino.exe`: a single executable of about 50 MB that includ
 - **Ctrl+Alt+F10** saves the last N seconds to `Videos\Cliperino`. Clicking the notification opens the editor so you can trim it.
 - From the tray menu you can turn instant replay on or off, save a clip, edit a clip, open the folder and open **Settings**.
 - **Settings** has three tabs:
-  - **Capture:** live preview of what's being recorded, duration, mode, games, monitor, FPS, audio, microphone, shortcut and folder.
+  - **Capture:** live preview of what's being recorded, duration, mode, games, monitor, FPS, audio, microphone, shortcut, notice and folder.
   - **Advanced:** encoder, bitrate and audio offset.
   - **Extras:** start with Windows, updates, language (Spanish or English, defaults to the Windows language), version and links to the project.
 - The preview in the Capture tab only runs while that tab is visible. If you change the monitor, the mode or the games, it shows how it will look before you save, without stopping the recording.
@@ -76,5 +76,6 @@ cliperino/
 - Only one global shortcut per key combination. If the NVIDIA overlay uses Alt+F10, Cliperino can't use it. If the shortcut is already taken, the app lets you know.
 - In screen mode, some fullscreen games may not show up (you get the desktop instead) and DRM-protected content may come out black. For games, game mode works better.
 - On HDR displays colors may look washed out.
+- The on-screen notice doesn't show over games in exclusive fullscreen; it does in borderless or windowed mode, which is how most modern games run. It never shows up in clips.
 - The start of the clip is accurate to about 2 s (it's cut by segments without re-encoding).
 - If the audio is out of sync, adjust it with "Audio offset" in Settings.

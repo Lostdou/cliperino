@@ -203,7 +203,7 @@ public static class PipelineBuilder
 
     static void AppendHeader(StringBuilder sb, string ffmpeg, FfmpegCapabilities caps, GpuSnapshot gpus, MonitorInfo? monitor)
     {
-        sb.AppendLine($"Cliperino probe – {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"Cliperino probe - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"ffmpeg: {ffmpeg}");
         sb.AppendLine($"  {caps.Version}");
         sb.AppendLine($"  ddagrab={caps.HasDdagrab} gdigrab={caps.HasGdigrab} nvenc={caps.HasNvenc} amf={caps.HasAmf} qsv={caps.HasQsv} x264={caps.HasX264} gfxcapture={caps.HasGfxcapture}");
