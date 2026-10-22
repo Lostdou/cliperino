@@ -28,10 +28,10 @@ Produces `publish\Cliperino.exe`: a single executable of about 50 MB that includ
 
 ## Usage
 - The tray icon changes color depending on the state: 🔴 recording, ⚪ off, 🟠 detecting or saving.
-- **Ctrl+Alt+F10** saves the last N seconds to `Videos\Cliperino`. Clicking the notification opens the editor so you can trim it.
+- **Ctrl+Alt+F10** saves the last N seconds to `Videos\Cliperino`, in a subfolder per game (`Videos\Cliperino\VALORANT`, `Videos\Cliperino\cs2`…) if the game is open. Clicking the notification opens the editor so you can trim it.
 - From the tray menu you can turn instant replay on or off, save a clip, edit a clip, open the folder and open **Settings**.
 - **Settings** has three tabs:
-  - **Capture:** live preview of what's being recorded, duration, mode, games, monitor, FPS, audio, microphone, shortcut, notice and folder.
+  - **Capture:** live preview of what's being recorded, duration, mode, games, monitor, FPS, audio, microphone, shortcut, notice, folder and whether each game gets its own folder.
   - **Advanced:** encoder, bitrate and audio offset.
   - **Extras:** start with Windows, updates, language (Spanish or English, defaults to the Windows language), version and links to the project.
 - The preview in the Capture tab only runs while that tab is visible. If you change the monitor, the mode or the games, it shows how it will look before you save, without stopping the recording.

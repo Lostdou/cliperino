@@ -296,6 +296,8 @@ sealed class TrayApp : ApplicationContext
         try
         {
             var (path, v, s) = (ffmpeg, video, settings.Clone());
+            var game = s.FolderPerGame ? captureWindow ?? GameWindow.Find(s.GameExecutables) : null;
+            if (game != null && GameWindow.FolderName(game.Executable) is { } folder) s.OutputFolder = Path.Combine(s.OutputFolder, folder);
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
             var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
             Feedback($"{T("Clip guardado", "Clip saved")} · {FormatDuration((int)Math.Round(clip.Duration.TotalSeconds))}", null, () =>

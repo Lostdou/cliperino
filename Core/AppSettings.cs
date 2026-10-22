@@ -35,6 +35,7 @@ public sealed class AppSettings
     public bool CheckForUpdates { get; set; } = true;
     public Language Language { get; set; } = Language.Auto;
     public FeedbackStyle Feedback { get; set; } = FeedbackStyle.Overlay;
+    public bool FolderPerGame { get; set; } = true;
 
     public string? CachedPipelineId { get; set; }
     public string? PipelineFingerprint { get; set; }

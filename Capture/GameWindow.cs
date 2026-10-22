@@ -42,6 +42,18 @@ public sealed record GameWindow(IntPtr Handle, int ProcessId, string Executable)
         }
     }
 
+    static readonly string[] ShippingSuffixes = ["-Win64-Shipping", "-Win32-Shipping"];
+
+    public static string? FolderName(string executable)
+    {
+        var name = Path.GetFileNameWithoutExtension(executable);
+        foreach (var suffix in ShippingSuffixes)
+            if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) name = name[..^suffix.Length];
+        var invalid = Path.GetInvalidFileNameChars();
+        name = new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim().TrimEnd('.');
+        return name.Length > 0 ? name : null;
+    }
+
     public static GameWindow? Find(IEnumerable<string> executables)
     {
         foreach (var executable in executables)

@@ -46,6 +46,7 @@ sealed class SettingsForm : Form
     readonly TextBox hotkeyBox = new() { ReadOnly = true, Width = 160, BackColor = SystemColors.Window };
     readonly ComboBox feedback = Dropdown(220);
     readonly TextBox folder = new() { Width = 340 };
+    readonly CheckBox folderPerGame = Check(T("Guardar cada juego en su carpeta", "Save each game in its own folder"));
 
     readonly ComboBox encoder = Dropdown(380);
     readonly Label detected = Hint("");
@@ -193,6 +194,7 @@ sealed class SettingsForm : Form
         };
 
         folder.Text = s.OutputFolder;
+        folderPerGame.Checked = s.FolderPerGame;
     }
 
     void LoadAdvancedValues(GpuSnapshot gpus, string? activePipeline)
@@ -236,6 +238,7 @@ sealed class SettingsForm : Form
         Row(grid, T("Atajo para guardar:", "Save shortcut:"), hotkeyBox, Hint(T("Hacé clic acá y apretá las teclas", "Click here and press the keys")));
         Row(grid, T("Aviso:", "Notice:"), feedback, Hint(T("Al activar, desactivar y guardar un clip", "When turning on, off and saving a clip")));
         Row(grid, T("Carpeta de clips:", "Clips folder:"), folder, browse);
+        Row(grid, "", folderPerGame);
 
         var previewPanel = Stack(new Label { Text = T("Vista previa en vivo", "Live preview"), AutoSize = true }, preview, previewCaption);
         previewPanel.Margin = new Padding(16, 0, 0, 0);
@@ -404,6 +407,7 @@ sealed class SettingsForm : Form
         s.Hotkey = hotkeyBox.Text;
         s.Feedback = (FeedbackStyle)((Item)feedback.SelectedItem!).Value!;
         s.OutputFolder = folder.Text.Trim();
+        s.FolderPerGame = folderPerGame.Checked;
         s.Encoder = (EncoderPreference)((Item)encoder.SelectedItem!).Value!;
         s.BitrateMbps = (int)bitrate.Value;
         s.AudioOffsetMs = (int)offset.Value;
