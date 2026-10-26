@@ -39,6 +39,30 @@ header { padding-top: 72px; padding-bottom: 56px; text-align: center; }
 .download-note { color: var(--muted); font-size: 14px; margin-top: 14px; }
 .download-note a { color: var(--muted); }
 
+.demo { position: relative; max-width: 880px; margin: 40px auto 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); background: #000; }
+.demo video { display: block; width: 100%; height: auto; }
+.toast {
+  position: absolute;
+  top: 5%;
+  right: 3%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 10px 14px;
+  background: rgba(28, 28, 30, 0.95);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.toast.visible { opacity: 1; transform: none; }
+.toast-dot { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; }
+
 section { padding: 48px 0; border-top: 1px solid var(--border); }
 h2 { font-size: 28px; margin: 0 0 24px; }
 h3 { font-size: 18px; margin: 0 0 6px; }
@@ -83,4 +107,7 @@ footer a:hover { color: var(--text); }
   header { padding-top: 48px; }
   .logo { font-size: 32px; }
   .tagline { font-size: 18px; }
+  .demo { margin-top: 32px; }
+  .toast { gap: 6px; padding: 5px 10px 5px 8px; font-size: 11px; border-left-width: 3px; }
+  .toast-dot { width: 10px; height: 10px; }
 }

@@ -21,6 +21,13 @@
     <a href="https://github.com/Lostdou/cliperino/releases/latest/download/Cliperino.exe" data-en="portable version">versión portable</a> ·
     <a href="https://github.com/Lostdou/cliperino/releases" data-en="all versions">todas las versiones</a>
   </p>
+  <div class="demo">
+    <video id="demo" src="img/demo.mp4" poster="img/demo.jpg" width="1280" height="720" autoplay muted loop playsinline></video>
+    <div class="toast" id="demo-toast" aria-hidden="true">
+      <span class="toast-dot"></span>
+      <span data-en="Clip saved · 1:00 min">Clip guardado · 1:00 min</span>
+    </div>
+  </div>
 </header>
 
 <main>
@@ -42,6 +49,14 @@
       <div class="card">
         <h3 data-en="Built-in editor">Editor incluido</h3>
         <p data-en="Trim the clip or remove its audio in seconds, without opening another program.">Recortá el clip o sacale el audio en segundos, sin abrir otro programa.</p>
+      </div>
+      <div class="card">
+        <h3 data-en="On-screen notice">Aviso en pantalla</h3>
+        <p data-en="A small notice in the corner lets you know when recording starts or stops and when a clip is saved, without pulling you out of the game.">Un cartel chico en la esquina te avisa cuando empieza o deja de grabar y cuando se guarda un clip, sin sacarte del juego.</p>
+      </div>
+      <div class="card">
+        <h3 data-en="Sorted by game">Ordenado por juego</h3>
+        <p data-en="Each clip goes into a folder named after its game, like <code>Cliperino\VALORANT</code>.">Cada clip va a una carpeta con el nombre de su juego, como <code>Cliperino\VALORANT</code>.</p>
       </div>
       <div class="card">
         <h3 data-en="Lightweight">Liviano</h3>
@@ -149,6 +164,17 @@
     setLanguage(current);
     try { localStorage.setItem("lang", current); } catch {}
   });
+
+  const demo = document.getElementById("demo");
+  const toast = document.getElementById("demo-toast");
+  demo.addEventListener("timeupdate", () => {
+    toast.classList.toggle("visible", demo.currentTime > 7.3 && demo.currentTime < 9.8);
+  });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    demo.removeAttribute("autoplay");
+    demo.pause();
+    demo.controls = true;
+  }
 </script>
 
 </body>
