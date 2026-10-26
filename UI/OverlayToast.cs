@@ -12,6 +12,10 @@ sealed class OverlayToast : Form
     const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
     const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     const int DWMWCP_ROUND = 2;
+    static readonly IntPtr HWND_TOPMOST = new(-1);
+    const uint SWP_NOSIZE = 0x1;
+    const uint SWP_NOMOVE = 0x2;
+    const uint SWP_NOACTIVATE = 0x10;
 
     const double VisibleOpacity = 0.95;
     const int FadeInMs = 150;
@@ -92,6 +96,7 @@ sealed class OverlayToast : Form
             Opacity = 0;
             base.Show();
         }
+        SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
         timer.Start();
     }
 
@@ -155,6 +160,7 @@ sealed class OverlayToast : Form
 
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")] static extern IntPtr MonitorFromPoint(Point point, uint flags);
     [DllImport("shcore.dll")] static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
