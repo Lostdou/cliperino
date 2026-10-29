@@ -32,7 +32,7 @@ Produces `publish\Cliperino.exe`: a single executable of about 50 MB that includ
 - From the tray menu you can turn instant replay on or off, save a clip, edit a clip, open the folder and open **Settings**.
 - **Settings** has three tabs:
   - **Capture:** live preview of what's being recorded, duration, mode, games (with their names), monitor, FPS, audio, microphone, shortcut, notice, folder and whether each game gets its own folder.
-  - **Advanced:** encoder, format (H.264 or HEVC), bitrate and audio offset. If the graphics card can't record HEVC, Cliperino uses H.264 and lets you know.
+  - **Advanced:** encoder, format (H.264 or HEVC), quality and audio offset. Quality can be Low, Balanced or High, and the bitrate is worked out from the monitor, FPS and format; with Custom you set it yourself. If the graphics card can't record HEVC, Cliperino uses H.264 and lets you know.
   - **Extras:** start with Windows, updates, language (Spanish or English, defaults to the Windows language), version and links to the project.
 - The preview in the Capture tab only runs while that tab is visible. If you change the monitor, the mode or the games, it shows how it will look before you save, without stopping the recording.
 

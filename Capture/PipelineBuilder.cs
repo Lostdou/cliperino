@@ -158,7 +158,7 @@ public static class PipelineBuilder
             foreach (var id in Candidates(monitor, gpus, caps, settings.Encoder, codec))
             {
                 progress?.Report(T($"Probando {Describe(id, codec, monitor, gpus)}…", $"Testing {Describe(id, codec, monitor, gpus)}…"));
-                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.BitrateMbps);
+                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.VideoBitrate(monitor?.Bounds.Size, codec));
                 var (code, output) = await TestAsync(ffmpeg, args);
                 AppendResult(report, id, args, code, output);
                 if (code != 0) continue;
@@ -199,7 +199,7 @@ public static class PipelineBuilder
         {
             foreach (var id in Candidates(monitor, gpus, caps, EncoderPreference.Auto, codec))
             {
-                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.BitrateMbps);
+                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.VideoBitrate(monitor?.Bounds.Size, codec));
                 var (code, log) = await TestAsync(ffmpeg, args);
                 AppendResult(report, $"{id} {codec}", args, code, log);
                 output.WriteLine($"  {(code == 0 ? "OK   " : "FALLA")} {id,-14} {codec,-5} {Describe(id, codec, monitor, gpus)}");

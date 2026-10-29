@@ -57,7 +57,10 @@ sealed class SettingsForm : Form
     readonly ComboBox encoder = Dropdown(380);
     readonly ComboBox codec = Dropdown(380);
     readonly Label detected = Hint("");
+    readonly ComboBox quality = Dropdown(220);
     readonly NumericUpDown bitrate = Number(2, 150, 1);
+    readonly Label bitrateHint = Hint("");
+    int customBitrate;
     readonly NumericUpDown offset = Number(-2000, 2000, 10);
 
     readonly CheckBox startWithWindows = Check(T("Iniciar con Windows", "Start with Windows"));
@@ -220,7 +223,21 @@ sealed class SettingsForm : Form
         codec.SelectedItem = codec.Items.Cast<Item>().First(i => Equals(i.Value, s.Codec));
 
         detected.Text = activePipeline ?? T("Se elige al empezar a grabar", "Chosen when recording starts");
-        bitrate.Value = s.BitrateMbps;
+        quality.Items.Add(new Item(T("Baja (clips más livianos)", "Low (smaller clips)"), QualityPreset.Low));
+        quality.Items.Add(new Item(T("Equilibrada (recomendado)", "Balanced (recommended)"), QualityPreset.Balanced));
+        quality.Items.Add(new Item(T("Alta (más nítido, más pesado)", "High (sharper, bigger)"), QualityPreset.High));
+        quality.Items.Add(new Item(T("Personalizada", "Custom"), QualityPreset.Custom));
+        quality.SelectedItem = quality.Items.Cast<Item>().First(i => Equals(i.Value, s.EffectiveQuality));
+        customBitrate = s.BitrateMbps;
+        bitrate.ValueChanged += (_, _) =>
+        {
+            if (SelectedQuality == QualityPreset.Custom) customBitrate = (int)bitrate.Value;
+        };
+        quality.SelectedIndexChanged += (_, _) => UpdateBitrate();
+        codec.SelectedIndexChanged += (_, _) => UpdateBitrate();
+        fps.SelectedIndexChanged += (_, _) => UpdateBitrate();
+        monitor.SelectedIndexChanged += (_, _) => UpdateBitrate();
+        UpdateBitrate();
         offset.Value = s.AudioOffsetMs;
     }
 
@@ -274,7 +291,8 @@ sealed class SettingsForm : Form
         Row(grid, T("Formato:", "Format:"), codec);
         Row(grid, "", Hint(T("HEVC ocupa menos, pero algunas apps no lo reproducen", "HEVC takes less space, but some apps can't play it")));
         Row(grid, T("En uso:", "In use:"), detected, redetect);
-        Row(grid, "Bitrate (Mbps):", bitrate);
+        Row(grid, T("Calidad:", "Quality:"), quality);
+        Row(grid, "Bitrate (Mbps):", bitrate, bitrateHint);
         Row(grid, T("Desfase de audio (ms):", "Audio offset (ms):"), offset, Hint(T("Subilo si el sonido llega antes que la imagen", "Raise it if the sound comes before the picture")));
         return Page(T("Avanzado", "Advanced"), grid);
     }
@@ -299,6 +317,20 @@ sealed class SettingsForm : Form
         open.Click += (_, _) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         var label = new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, MinimumSize = new Size(260, 0) };
         return Flow([label, open]);
+    }
+
+    QualityPreset SelectedQuality => (QualityPreset)((Item)quality.SelectedItem!).Value!;
+
+    void UpdateBitrate()
+    {
+        var preset = SelectedQuality;
+        var resolution = ((monitor.SelectedItem as Item)?.Value as MonitorInfo)?.Bounds.Size ?? new Size(1920, 1080);
+        var selectedCodec = (VideoCodec)((Item)codec.SelectedItem!).Value!;
+        bitrate.Enabled = preset == QualityPreset.Custom;
+        bitrate.Value = AppSettings.BitrateFor(preset, customBitrate, resolution, (int)fps.SelectedItem!, selectedCodec);
+        bitrateHint.Text = preset == QualityPreset.Custom
+            ? ""
+            : T("según el monitor, los FPS y el formato", "based on the monitor, FPS and format");
     }
 
     void FitTabs(TabPage[] pages)
@@ -475,7 +507,8 @@ sealed class SettingsForm : Form
         s.FolderPerGame = folderPerGame.Checked;
         s.Encoder = (EncoderPreference)((Item)encoder.SelectedItem!).Value!;
         s.Codec = (VideoCodec)((Item)codec.SelectedItem!).Value!;
-        s.BitrateMbps = (int)bitrate.Value;
+        s.Quality = SelectedQuality;
+        s.BitrateMbps = customBitrate;
         s.AudioOffsetMs = (int)offset.Value;
         s.StartWithWindows = startWithWindows.Checked;
         s.StartReplayOnLaunch = startOnLaunch.Checked;

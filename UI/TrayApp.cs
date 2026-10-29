@@ -172,7 +172,7 @@ sealed class TrayApp : ApplicationContext
                 if (current.CaptureMicrophone) micAudio = new AudioRecorder(DataFlow.Capture, current.MicrophoneDeviceId, bufferSeconds);
             });
 
-            var args = PipelineBuilder.BuildArgs(resolved.Id, resolved.Codec, resolved.Monitor, current.Fps, current.BitrateMbps, window?.Handle ?? IntPtr.Zero);
+            var args = PipelineBuilder.BuildArgs(resolved.Id, resolved.Codec, resolved.Monitor, current.Fps, current.VideoBitrate(resolved.Monitor?.Bounds.Size, resolved.Codec), window?.Handle ?? IntPtr.Zero);
             video = new VideoBuffer(path, args, current.ReplaySeconds);
             video.Failed += OnVideoFailed;
             video.Start();
@@ -467,7 +467,7 @@ sealed class TrayApp : ApplicationContext
     void OpenEditor(string clip)
     {
         if (ffmpeg == null || !File.Exists(clip)) return;
-        new EditorForm(ffmpeg, clip, codec => PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, codec, settings.BitrateMbps)).Show();
+        new EditorForm(ffmpeg, clip, codec => PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, codec, settings.VideoBitrate(pipeline?.Monitor?.Bounds.Size, codec))).Show();
     }
 
     PreviewSource PreviewFor(CaptureChoice choice)

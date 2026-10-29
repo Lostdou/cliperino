@@ -16,11 +16,14 @@ public enum FeedbackStyle { Overlay, Sound }
 
 public enum VideoCodec { H264, Hevc }
 
+public enum QualityPreset { Low, Balanced, High, Custom }
+
 public sealed class AppSettings
 {
     public int ReplaySeconds { get; set; } = 60;
     public int Fps { get; set; } = 60;
     public int BitrateMbps { get; set; } = 20;
+    public QualityPreset? Quality { get; set; }
     public string? MonitorDeviceName { get; set; }
     public EncoderPreference Encoder { get; set; } = EncoderPreference.Auto;
     public VideoCodec Codec { get; set; } = VideoCodec.H264;
@@ -78,7 +81,7 @@ public sealed class AppSettings
         JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(this, Json), Json)!;
 
     public bool CaptureChanged(AppSettings other) =>
-        ReplaySeconds != other.ReplaySeconds || Fps != other.Fps || BitrateMbps != other.BitrateMbps ||
+        ReplaySeconds != other.ReplaySeconds || Fps != other.Fps || BitrateMbps != other.BitrateMbps || EffectiveQuality != other.EffectiveQuality ||
         MonitorDeviceName != other.MonitorDeviceName || Encoder != other.Encoder || Codec != other.Codec ||
         CaptureSystemAudio != other.CaptureSystemAudio || CaptureMicrophone != other.CaptureMicrophone ||
         MicrophoneDeviceId != other.MicrophoneDeviceId || CaptureMode != other.CaptureMode || AudioSource != other.AudioSource ||
@@ -94,7 +97,23 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(Hotkey)) Hotkey = "Ctrl+Alt+F10";
         GameExecutables = GameExecutables?.Select(g => g.Trim()).Where(g => g.Length > 0).ToList() ?? [];
         GameAliases ??= [];
+        Quality = EffectiveQuality;
         return this;
+    }
+
+    [JsonIgnore]
+    public QualityPreset EffectiveQuality => Quality ?? (BitrateMbps == 20 ? QualityPreset.Balanced : QualityPreset.Custom);
+
+    public int VideoBitrate(Size? resolution, VideoCodec codec) =>
+        BitrateFor(EffectiveQuality, BitrateMbps, resolution ?? new Size(1920, 1080), Fps, codec);
+
+    public static int BitrateFor(QualityPreset preset, int customMbps, Size resolution, int fps, VideoCodec codec)
+    {
+        if (preset == QualityPreset.Custom) return customMbps;
+        double baseMbps = preset switch { QualityPreset.Low => 10, QualityPreset.High => 35, _ => 20 };
+        double pixels = Math.Max(1, resolution.Width * resolution.Height) / (1920.0 * 1080.0);
+        double mbps = baseMbps * Math.Pow(pixels, 0.85) * Math.Pow(fps / 60.0, 0.8) * (codec == VideoCodec.Hevc ? 0.65 : 1);
+        return (int)Math.Clamp(Math.Round(mbps, MidpointRounding.AwayFromZero), 2, 150);
     }
 
     public string? AliasOf(string executable) =>
