@@ -23,6 +23,7 @@ public sealed class AppSettings
     public EncoderPreference Encoder { get; set; } = EncoderPreference.Auto;
     public CaptureMode CaptureMode { get; set; } = CaptureMode.Window;
     public List<string> GameExecutables { get; set; } = ["VALORANT-Win64-Shipping.exe"];
+    public Dictionary<string, string> GameAliases { get; set; } = [];
     public AudioSource AudioSource { get; set; } = AudioSource.Desktop;
     public string Hotkey { get; set; } = "Ctrl+Alt+F10";
     public string OutputFolder { get; set; } = AppPaths.DefaultClips;
@@ -88,8 +89,14 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(OutputFolder)) OutputFolder = AppPaths.DefaultClips;
         if (string.IsNullOrWhiteSpace(Hotkey)) Hotkey = "Ctrl+Alt+F10";
         GameExecutables = GameExecutables?.Select(g => g.Trim()).Where(g => g.Length > 0).ToList() ?? [];
+        GameAliases ??= [];
         return this;
     }
+
+    public string? AliasOf(string executable) =>
+        GameAliases.FirstOrDefault(a => string.Equals(a.Key, executable, StringComparison.OrdinalIgnoreCase)).Value;
+
+    public string DisplayNameOf(string executable) => AliasOf(executable) ?? executable;
 
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 

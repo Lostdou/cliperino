@@ -6,7 +6,7 @@ using Cliperino.Update;
 
 namespace Cliperino.UI;
 
-public sealed record CaptureChoice(CaptureMode Mode, MonitorInfo? Monitor, IReadOnlyList<string> Games);
+public sealed record CaptureChoice(CaptureMode Mode, MonitorInfo? Monitor, IReadOnlyList<string> Games, IReadOnlyDictionary<string, string> Aliases);
 
 public sealed record PreviewSource(Func<LivePreview>? Create, string Key, string Caption);
 
@@ -15,6 +15,11 @@ sealed class SettingsForm : Form
     sealed record Item(string Text, object? Value)
     {
         public override string ToString() => Text;
+    }
+
+    sealed record GameEntry(string Executable, string? Alias)
+    {
+        public override string ToString() => Alias == null ? Executable : $"{Alias}   ({Executable})";
     }
 
     const string RepoUrl = "https://github.com/Lostdou/cliperino";
@@ -34,8 +39,9 @@ sealed class SettingsForm : Form
     readonly NumericUpDown seconds = Number(5, 1200, 5);
     readonly Label secondsHint = Hint("");
     readonly ComboBox captureMode = Dropdown(380);
-    readonly ListBox games = new() { Width = 300, Height = 64, IntegralHeight = false };
+    readonly ListBox games = new() { Width = 300, Height = 88, IntegralHeight = false };
     readonly Button addGame = new() { Text = T("Agregar…", "Add…"), AutoSize = true };
+    readonly Button renameGame = new() { Text = T("Renombrar…", "Rename…"), AutoSize = true };
     readonly Button removeGame = new() { Text = T("Quitar", "Remove"), AutoSize = true };
     readonly ComboBox monitor = Dropdown(380);
     readonly ComboBox fps = Dropdown(90);
@@ -146,8 +152,9 @@ sealed class SettingsForm : Form
         captureMode.Items.Add(new Item(T("Pantalla: todo lo que se ve en el monitor", "Screen: everything on the monitor"), CaptureMode.Monitor));
         captureMode.SelectedItem = captureMode.Items.Cast<Item>().First(i => Equals(i.Value, s.CaptureMode));
 
-        games.Items.AddRange(s.GameExecutables.Cast<object>().ToArray());
+        games.Items.AddRange(s.GameExecutables.Select(g => (object)new GameEntry(g, s.AliasOf(g))).ToArray());
         addGame.Click += (_, _) => ShowOpenWindows(addGame);
+        renameGame.Click += (_, _) => RenameSelectedGame();
         removeGame.Click += (_, _) =>
         {
             if (games.SelectedItem != null) games.Items.Remove(games.SelectedItem);
@@ -174,7 +181,7 @@ sealed class SettingsForm : Form
         void UpdateEnabled()
         {
             bool window = Equals((captureMode.SelectedItem as Item)?.Value, CaptureMode.Window);
-            games.Enabled = addGame.Enabled = removeGame.Enabled = window;
+            games.Enabled = addGame.Enabled = renameGame.Enabled = removeGame.Enabled = window;
             audioSource.Enabled = window && systemAudio.Checked;
             micDevice.Enabled = mic.Checked;
         }
@@ -229,8 +236,8 @@ sealed class SettingsForm : Form
         var grid = Grid();
         Row(grid, T("Guardar los últimos (seg):", "Save the last (sec):"), seconds, secondsHint);
         Row(grid, T("Captura:", "Capture:"), captureMode);
-        Row(grid, T("Juegos:", "Games:"), games, Stack(addGame, removeGame));
-        Row(grid, "", Hint(T("Abrí el juego y elegilo con Agregar…", "Open the game and pick it with Add…")));
+        Row(grid, T("Juegos:", "Games:"), games, Stack(addGame, renameGame, removeGame));
+        Row(grid, "", Hint(T("Abrí el juego y elegilo con Agregar…; con Renombrar elegís cómo se muestra", "Open the game and pick it with Add…; Rename changes how it's shown")));
         Row(grid, "Monitor:", monitor);
         Row(grid, "FPS:", fps);
         Row(grid, "Audio:", systemAudio, audioSource);
@@ -301,7 +308,8 @@ sealed class SettingsForm : Form
         var source = previewSource(new CaptureChoice(
             (CaptureMode)((Item)captureMode.SelectedItem!).Value!,
             (monitor.SelectedItem as Item)?.Value as MonitorInfo,
-            games.Items.Cast<string>().ToList()));
+            Games().Select(g => g.Executable).ToList(),
+            Aliases()));
         previewCaption.Text = source.Caption;
         if (tabs.SelectedIndex == 0 && source.Create != null) StartPreview(source);
         else StopPreview();
@@ -360,7 +368,7 @@ sealed class SettingsForm : Form
         foreach (var window in GameWindow.ListOpen())
         {
             var item = new ToolStripMenuItem($"{window.Title}   ({window.Executable})", IconOf(window.Path));
-            item.Click += (_, _) => AddGame(window.Executable);
+            item.Click += (_, _) => AddGame(window.Executable, window.Title);
             menu.Items.Add(item);
         }
         if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
@@ -372,13 +380,62 @@ sealed class SettingsForm : Form
     void BrowseGame()
     {
         using var dialog = new OpenFileDialog { Filter = T("Ejecutables (*.exe)|*.exe", "Executables (*.exe)|*.exe"), Title = T("Elegí el ejecutable del juego", "Choose the game's executable") };
-        if (dialog.ShowDialog(this) == DialogResult.OK) AddGame(Path.GetFileName(dialog.FileName));
+        if (dialog.ShowDialog(this) == DialogResult.OK) AddGame(Path.GetFileName(dialog.FileName), null);
     }
 
-    void AddGame(string executable)
+    IEnumerable<GameEntry> Games() => games.Items.Cast<GameEntry>();
+
+    Dictionary<string, string> Aliases() => Games()
+        .Where(g => g.Alias != null)
+        .ToDictionary(g => g.Executable, g => g.Alias!, StringComparer.OrdinalIgnoreCase);
+
+    void AddGame(string executable, string? title)
     {
-        if (!games.Items.Cast<string>().Contains(executable, StringComparer.OrdinalIgnoreCase)) games.Items.Add(executable);
-        games.SelectedItem = games.Items.Cast<string>().First(g => string.Equals(g, executable, StringComparison.OrdinalIgnoreCase));
+        var existing = Games().FirstOrDefault(g => string.Equals(g.Executable, executable, StringComparison.OrdinalIgnoreCase));
+        if (existing == null)
+        {
+            var alias = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+            existing = new GameEntry(executable, alias);
+            games.Items.Add(existing);
+        }
+        games.SelectedItem = existing;
+        UpdatePreview();
+    }
+
+    void RenameSelectedGame()
+    {
+        if (games.SelectedItem is not GameEntry entry) return;
+        using var dialog = new Form
+        {
+            Text = T("Renombrar juego", "Rename game"),
+            Font = Font,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            StartPosition = FormStartPosition.CenterParent,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(12),
+        };
+        var name = new TextBox { Text = entry.Alias ?? "", Width = 280 };
+        var ok = new Button { Text = T("Aceptar", "OK"), AutoSize = true, DialogResult = DialogResult.OK };
+        var cancel = new Button { Text = T("Cancelar", "Cancel"), AutoSize = true, DialogResult = DialogResult.Cancel };
+        var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty };
+        buttons.Controls.AddRange(new Control[] { cancel, ok });
+        dialog.Controls.Add(Stack(
+            new Label { Text = T($"Nombre para {entry.Executable}:", $"Name for {entry.Executable}:"), AutoSize = true },
+            name,
+            Hint(T("Vacío para usar el nombre del ejecutable", "Leave it empty to use the executable name")),
+            buttons));
+        dialog.AcceptButton = ok;
+        dialog.CancelButton = cancel;
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        var alias = name.Text.Trim();
+        var index = games.SelectedIndex;
+        games.Items[index] = entry with { Alias = alias.Length > 0 ? alias : null };
+        games.SelectedIndex = index;
         UpdatePreview();
     }
 
@@ -397,7 +454,8 @@ sealed class SettingsForm : Form
 
         s.ReplaySeconds = (int)seconds.Value;
         s.CaptureMode = (CaptureMode)((Item)captureMode.SelectedItem!).Value!;
-        s.GameExecutables = games.Items.Cast<string>().ToList();
+        s.GameExecutables = Games().Select(g => g.Executable).ToList();
+        s.GameAliases = Aliases();
         if ((monitor.SelectedItem as Item)?.Value is MonitorInfo m) s.MonitorDeviceName = m.DeviceName;
         s.Fps = (int)fps.SelectedItem!;
         s.CaptureSystemAudio = systemAudio.Checked;

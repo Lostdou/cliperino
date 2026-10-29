@@ -171,7 +171,7 @@ sealed class TrayApp : ApplicationContext
             video = new VideoBuffer(path, args, current.ReplaySeconds);
             video.Failed += OnVideoFailed;
             video.Start();
-            var what = window?.Executable ?? T("la pantalla", "the screen");
+            var what = window != null ? current.DisplayNameOf(window.Executable) : T("la pantalla", "the screen");
             SetStatus(T($"Grabando {what}: últimos {FormatDuration(current.ReplaySeconds)}", $"Recording {what}: last {FormatDuration(current.ReplaySeconds)}"), recordingIcon);
             // windows 11 esconde los iconos nuevos de la bandeja, sin aviso no se sabe que esta grabando
             Feedback(T("Repetición instantánea activada", "Instant replay on"),
@@ -248,7 +248,8 @@ sealed class TrayApp : ApplicationContext
         if (window != null)
         {
             failedWindow = window.Handle;
-            Notify(T($"No se pudo grabar {window.Executable}, así que se graba la pantalla.", $"Couldn't record {window.Executable}, recording the screen instead."), ToolTipIcon.Warning);
+            var name = settings.DisplayNameOf(window.Executable);
+            Notify(T($"No se pudo grabar {name}, así que se graba la pantalla.", $"Couldn't record {name}, recording the screen instead."), ToolTipIcon.Warning);
             await StartReplayAsync(force: false);
             return;
         }
@@ -297,7 +298,7 @@ sealed class TrayApp : ApplicationContext
         {
             var (path, v, s) = (ffmpeg, video, settings.Clone());
             var game = s.FolderPerGame ? captureWindow ?? GameWindow.Find(s.GameExecutables) : null;
-            if (game != null && GameWindow.FolderName(game.Executable) is { } folder) s.OutputFolder = Path.Combine(s.OutputFolder, folder);
+            if (game != null && GameWindow.FolderName(game.Executable, s.AliasOf(game.Executable)) is { } folder) s.OutputFolder = Path.Combine(s.OutputFolder, folder);
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
             var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
             Feedback($"{T("Clip guardado", "Clip saved")} · {FormatDuration((int)Math.Round(clip.Duration.TotalSeconds))}", null, () =>
@@ -469,7 +470,7 @@ sealed class TrayApp : ApplicationContext
 
         var window = choice.Mode == CaptureMode.Window && caps.HasGfxcapture && caps.HasDdagrab ? GameWindow.Find(choice.Games) : null;
         if (window?.Handle == failedWindow) window = null;
-        var what = window?.Executable ?? T("la pantalla", "the screen");
+        var what = window != null ? choice.Aliases.GetValueOrDefault(window.Executable) ?? window.Executable : T("la pantalla", "the screen");
         bool recordingThis = video != null && window?.Handle == captureWindow?.Handle &&
             (window != null || string.Equals(pipeline?.Monitor?.DeviceName, monitor.DeviceName, StringComparison.OrdinalIgnoreCase));
         if (recordingThis)
@@ -513,7 +514,7 @@ sealed class TrayApp : ApplicationContext
     void SetStatus(string text, Icon icon)
     {
         statusItem.Text = text;
-        pipelineItem.Text = captureWindow != null ? T($"{pipeline?.Description} · ventana de {captureWindow.Executable}", $"{pipeline?.Description} · {captureWindow.Executable} window") : pipeline?.Description ?? "";
+        pipelineItem.Text = captureWindow != null ? T($"{pipeline?.Description} · ventana de {settings.DisplayNameOf(captureWindow.Executable)}", $"{pipeline?.Description} · {settings.DisplayNameOf(captureWindow.Executable)} window") : pipeline?.Description ?? "";
         pipelineItem.Visible = pipeline != null;
         var tip = $"Cliperino - {text}";
         tray.Text = tip.Length > 127 ? tip[..127] : tip;

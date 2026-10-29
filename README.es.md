@@ -28,10 +28,10 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 
 ## Uso
 - El ícono de la bandeja cambia de color según el estado: 🔴 grabando, ⚪ desactivado, 🟠 detectando o guardando.
-- **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`, en una subcarpeta por juego (`Videos\Cliperino\VALORANT`, `Videos\Cliperino\cs2`…) si el juego está abierto. Al hacer clic en la notificación se abre el editor para recortarlo.
+- **Ctrl+Alt+F10** guarda los últimos N segundos en `Videos\Cliperino`, en una subcarpeta por juego (`Videos\Cliperino\VALORANT`, `Videos\Cliperino\cs2`…) si el juego está abierto. Cada juego puede tener un nombre propio (por ejemplo `THE FINALS` en vez de `Discovery.exe`), que se usa en la carpeta, en la bandeja y en el aviso. Al hacer clic en la notificación se abre el editor para recortarlo.
 - Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se edita un clip, se abre la carpeta y se entra a los **Ajustes**.
 - **Ajustes** tiene tres pestañas:
-  - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos, monitor, FPS, audio, micrófono, atajo, aviso, carpeta y si cada juego va en su carpeta.
+  - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos (con su nombre), monitor, FPS, audio, micrófono, atajo, aviso, carpeta y si cada juego va en su carpeta.
   - **Avanzado:** codificador, bitrate y desfase de audio.
   - **Extras:** inicio con Windows, actualizaciones, idioma (español o inglés, por defecto el de Windows), versión y enlaces al proyecto.
 - La vista previa de la pestaña Captura solo corre mientras esa pestaña está visible. Si cambiás el monitor, el modo o los juegos, muestra cómo va a quedar antes de guardar, sin cortar la grabación.
