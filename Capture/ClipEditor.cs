@@ -1,5 +1,6 @@
 using static Cliperino.Core.Lang;
 using System.Globalization;
+using Cliperino.Core;
 using Cliperino.Ffmpeg;
 
 namespace Cliperino.Capture;
@@ -13,7 +14,7 @@ public static class ClipEditor
     static readonly TimeSpan ExportTimeout = TimeSpan.FromMinutes(15);
     static readonly TimeSpan ReplaceRetryDelay = TimeSpan.FromMilliseconds(300);
 
-    public static async Task<string> ExportAsync(string ffmpeg, string input, ClipEdit edit, string exactEncoderArgs)
+    public static async Task<string> ExportAsync(string ffmpeg, string input, ClipEdit edit, VideoCodec codec, string exactEncoderArgs)
     {
         var duration = edit.End - edit.Start;
         if (duration < MinimumDuration) throw new InvalidOperationException(T("El recorte es demasiado corto.", "The trim is too short."));
@@ -26,7 +27,7 @@ public static class ClipEditor
         var video = edit.Exact ? exactEncoderArgs : "-c:v copy";
         var audio = edit.RemoveAudio ? "-an" : edit.Exact ? "-c:a aac -b:a 192k" : "-c:a copy";
         var args = $"-hide_banner -loglevel error -nostdin -y -ss {Seconds(edit.Start)} -i \"{input}\" -t {Seconds(duration)} " +
-                   $"-map 0:v -map 0:a? {video} {audio} -avoid_negative_ts make_zero -movflags +faststart \"{target}\"";
+                   $"-map 0:v -map 0:a? {video} {ClipSaver.Mp4Tag(codec)}{audio} -avoid_negative_ts make_zero -movflags +faststart \"{target}\"";
 
         var (code, log) = await FfmpegProcess.RunAsync(ffmpeg, args, ExportTimeout);
         if (code != 0 || !File.Exists(target))

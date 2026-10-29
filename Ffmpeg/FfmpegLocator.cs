@@ -7,14 +7,19 @@ using Cliperino.Core;
 namespace Cliperino.Ffmpeg;
 
 public sealed record FfmpegCapabilities(
-    string Version, bool HasDdagrab, bool HasGdigrab, bool HasNvenc, bool HasAmf, bool HasQsv, bool HasX264, bool HasGfxcapture)
+    string Version, bool HasDdagrab, bool HasGdigrab, bool HasNvenc, bool HasAmf, bool HasQsv, bool HasX264, bool HasGfxcapture,
+    bool HasHevcNvenc, bool HasHevcAmf, bool HasHevcQsv, bool HasX265)
 {
-    public bool HasEncoder(string encoder) => encoder switch
+    public bool HasEncoder(string encoder, VideoCodec codec = VideoCodec.H264) => (encoder, codec) switch
     {
-        "nvenc" => HasNvenc,
-        "amf" => HasAmf,
-        "qsv" => HasQsv,
-        "x264" => HasX264,
+        ("nvenc", VideoCodec.H264) => HasNvenc,
+        ("amf", VideoCodec.H264) => HasAmf,
+        ("qsv", VideoCodec.H264) => HasQsv,
+        ("x264", VideoCodec.H264) => HasX264,
+        ("nvenc", VideoCodec.Hevc) => HasHevcNvenc,
+        ("amf", VideoCodec.Hevc) => HasHevcAmf,
+        ("qsv", VideoCodec.Hevc) => HasHevcQsv,
+        ("x264", VideoCodec.Hevc) => HasX265,
         _ => false,
     };
 }
@@ -72,7 +77,11 @@ public static class FfmpegLocator
             Has(encoders.Output, "h264_amf"),
             Has(encoders.Output, "h264_qsv"),
             Has(encoders.Output, "libx264"),
-            Has(filters.Output, "gfxcapture"));
+            Has(filters.Output, "gfxcapture"),
+            Has(encoders.Output, "hevc_nvenc"),
+            Has(encoders.Output, "hevc_amf"),
+            Has(encoders.Output, "hevc_qsv"),
+            Has(encoders.Output, "libx265"));
     }
 }
 

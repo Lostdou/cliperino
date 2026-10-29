@@ -55,6 +55,7 @@ sealed class SettingsForm : Form
     readonly CheckBox folderPerGame = Check(T("Guardar cada juego en su carpeta", "Save each game in its own folder"));
 
     readonly ComboBox encoder = Dropdown(380);
+    readonly ComboBox codec = Dropdown(380);
     readonly Label detected = Hint("");
     readonly NumericUpDown bitrate = Number(2, 150, 1);
     readonly NumericUpDown offset = Number(-2000, 2000, 10);
@@ -165,7 +166,7 @@ sealed class SettingsForm : Form
         var currentMonitor = gpus.FindMonitor(s.MonitorDeviceName);
         monitor.SelectedItem = monitor.Items.Cast<Item>().FirstOrDefault(i => ReferenceEquals(i.Value, currentMonitor));
 
-        fps.Items.AddRange(new object[] { 30, 60 });
+        fps.Items.AddRange(new object[] { 30, 60, 120 });
         fps.SelectedItem = s.Fps;
 
         systemAudio.Checked = s.CaptureSystemAudio;
@@ -214,6 +215,10 @@ sealed class SettingsForm : Form
         encoder.Items.Add(new Item(T("Procesador (x264, exige más a la PC)", "Processor (x264, heavier on the PC)"), EncoderPreference.X264));
         encoder.SelectedItem = encoder.Items.Cast<Item>().FirstOrDefault(i => Equals(i.Value, s.Encoder)) ?? encoder.Items[0];
 
+        codec.Items.Add(new Item(T("H.264 (el más compatible)", "H.264 (most compatible)"), VideoCodec.H264));
+        codec.Items.Add(new Item(T("HEVC / H.265 (archivos más livianos)", "HEVC / H.265 (smaller files)"), VideoCodec.Hevc));
+        codec.SelectedItem = codec.Items.Cast<Item>().First(i => Equals(i.Value, s.Codec));
+
         detected.Text = activePipeline ?? T("Se elige al empezar a grabar", "Chosen when recording starts");
         bitrate.Value = s.BitrateMbps;
         offset.Value = s.AudioOffsetMs;
@@ -239,7 +244,7 @@ sealed class SettingsForm : Form
         Row(grid, T("Juegos:", "Games:"), games, Stack(addGame, renameGame, removeGame));
         Row(grid, "", Hint(T("Abrí el juego y elegilo con Agregar…; con Renombrar elegís cómo se muestra", "Open the game and pick it with Add…; Rename changes how it's shown")));
         Row(grid, "Monitor:", monitor);
-        Row(grid, "FPS:", fps);
+        Row(grid, "FPS:", fps, Hint(T("120 solo si tu monitor llega a 120 Hz", "120 only if your monitor reaches 120 Hz")));
         Row(grid, "Audio:", systemAudio, audioSource);
         Row(grid, "", mic, micDevice);
         Row(grid, T("Atajo para guardar:", "Save shortcut:"), hotkeyBox, Hint(T("Hacé clic acá y apretá las teclas", "Click here and press the keys")));
@@ -266,6 +271,8 @@ sealed class SettingsForm : Form
 
         var grid = Grid();
         Row(grid, T("Codificador:", "Encoder:"), encoder);
+        Row(grid, T("Formato:", "Format:"), codec);
+        Row(grid, "", Hint(T("HEVC ocupa menos, pero algunas apps no lo reproducen", "HEVC takes less space, but some apps can't play it")));
         Row(grid, T("En uso:", "In use:"), detected, redetect);
         Row(grid, "Bitrate (Mbps):", bitrate);
         Row(grid, T("Desfase de audio (ms):", "Audio offset (ms):"), offset, Hint(T("Subilo si el sonido llega antes que la imagen", "Raise it if the sound comes before the picture")));
@@ -467,6 +474,7 @@ sealed class SettingsForm : Form
         s.OutputFolder = folder.Text.Trim();
         s.FolderPerGame = folderPerGame.Checked;
         s.Encoder = (EncoderPreference)((Item)encoder.SelectedItem!).Value!;
+        s.Codec = (VideoCodec)((Item)codec.SelectedItem!).Value!;
         s.BitrateMbps = (int)bitrate.Value;
         s.AudioOffsetMs = (int)offset.Value;
         s.StartWithWindows = startWithWindows.Checked;

@@ -12,7 +12,7 @@ public sealed record SavedClip(string Path, TimeSpan Duration);
 public static class ClipSaver
 {
     public static async Task<SavedClip> SaveAsync(
-        string ffmpeg, VideoBuffer video, AudioRingBuffer? systemAudio, AudioRingBuffer? micAudio, AppSettings settings)
+        string ffmpeg, VideoBuffer video, AudioRingBuffer? systemAudio, AudioRingBuffer? micAudio, AppSettings settings, VideoCodec codec)
     {
         var endUtc = DateTime.UtcNow;
         using var pause = video.PauseCleanup();
@@ -59,7 +59,7 @@ public static class ClipSaver
 
             var args = new StringBuilder("-hide_banner -loglevel error -y -f mpegts -i pipe:0 ");
             foreach (var wav in wavs) args.Append($"-i \"{wav}\" ");
-            args.Append("-map 0:v -c:v copy ");
+            args.Append($"-map 0:v -c:v copy {Mp4Tag(codec)}");
             if (wavs.Count == 1) args.Append("-map 1:a ");
             if (wavs.Count == 2) args.Append("-filter_complex \"[1:a][2:a]amix=inputs=2:duration=longest:normalize=0[a]\" -map \"[a]\" ");
             if (wavs.Count > 0) args.Append("-c:a aac -b:a 192k -ac 2 -shortest ");
@@ -98,6 +98,8 @@ public static class ClipSaver
             }
         }
     }
+
+    internal static string Mp4Tag(VideoCodec codec) => codec == VideoCodec.Hevc ? "-tag:v hvc1 " : "";
 
     internal static string UniquePath(string path)
     {

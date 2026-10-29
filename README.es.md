@@ -32,7 +32,7 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 - Desde el menú de la bandeja se activa o desactiva la repetición, se guarda un clip, se edita un clip, se abre la carpeta y se entra a los **Ajustes**.
 - **Ajustes** tiene tres pestañas:
   - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos (con su nombre), monitor, FPS, audio, micrófono, atajo, aviso, carpeta y si cada juego va en su carpeta.
-  - **Avanzado:** codificador, bitrate y desfase de audio.
+  - **Avanzado:** codificador, formato (H.264 o HEVC), bitrate y desfase de audio. Si la placa no puede grabar en HEVC, Cliperino usa H.264 y avisa.
   - **Extras:** inicio con Windows, actualizaciones, idioma (español o inglés, por defecto el de Windows), versión y enlaces al proyecto.
 - La vista previa de la pestaña Captura solo corre mientras esa pestaña está visible. Si cambiás el monitor, el modo o los juegos, muestra cómo va a quedar antes de guardar, sin cortar la grabación.
 
@@ -76,6 +76,8 @@ cliperino/
 - Un solo atajo global por combinación. Si la overlay de NVIDIA usa Alt+F10, Cliperino no puede usarlo. Si el atajo está ocupado, la app avisa.
 - En modo pantalla, algunos juegos en pantalla completa pueden no verse (sale el escritorio) y el contenido con DRM puede salir en negro. Para juegos conviene el modo juego.
 - En pantallas HDR los colores pueden verse lavados.
+- Los clips en HEVC ocupan menos, pero no todas las apps los reproducen (por ejemplo, las Fotos de Windows sin la extensión HEVC, o algunos chats).
+- A 120 fps la captura solo llega a 120 cuadros reales si el monitor es de 120 Hz o más; si no, repite cuadros.
 - El aviso en pantalla no se ve sobre juegos en pantalla completa exclusiva; sí en ventana sin bordes o en ventana, que es como corren la mayoría de los juegos actuales. Nunca aparece en los clips.
 - El inicio del clip tiene unos 2 s de precisión (se corta por segmentos sin re-codificar).
 - Si el audio no queda sincronizado, se ajusta con "Desfase de audio" en Ajustes.

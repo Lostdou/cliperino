@@ -5,7 +5,7 @@ using Cliperino.Ffmpeg;
 
 namespace Cliperino.Capture;
 
-public sealed record ResolvedPipeline(string Id, string Description, MonitorInfo? Monitor)
+public sealed record ResolvedPipeline(string Id, VideoCodec Codec, string Description, MonitorInfo? Monitor)
 {
     public bool CapturesWithGpu => Id.StartsWith("dda-");
 }
@@ -20,13 +20,13 @@ public static class PipelineBuilder
         [GpuVendor.Intel] = "qsv",
     };
 
-    public static List<string> Candidates(MonitorInfo? monitor, GpuSnapshot gpus, FfmpegCapabilities caps, EncoderPreference preference)
+    public static List<string> Candidates(MonitorInfo? monitor, GpuSnapshot gpus, FfmpegCapabilities caps, EncoderPreference preference, VideoCodec codec)
     {
         var list = new List<string>();
         if (caps.HasDdagrab && monitor != null)
         {
             // via memoria como respaldo por si el driver rechaza el zero-copy
-            if (VendorEncoder.TryGetValue(monitor.Adapter.Vendor, out var own) && caps.HasEncoder(own))
+            if (VendorEncoder.TryGetValue(monitor.Adapter.Vendor, out var own) && caps.HasEncoder(own, codec))
             {
                 list.Add($"dda-zc-{own}");
                 list.Add($"dda-sys-{own}");
@@ -34,12 +34,12 @@ public static class PipelineBuilder
             // laptops hibridas: pantalla en la igpu, encoder en la dgpu
             foreach (var vendor in gpus.Adapters.Select(a => a.Vendor).Distinct())
             {
-                if (vendor != monitor.Adapter.Vendor && VendorEncoder.TryGetValue(vendor, out var other) && caps.HasEncoder(other))
+                if (vendor != monitor.Adapter.Vendor && VendorEncoder.TryGetValue(vendor, out var other) && caps.HasEncoder(other, codec))
                     list.Add($"dda-sys-{other}");
             }
-            if (caps.HasX264) list.Add("dda-sys-x264");
+            if (caps.HasEncoder("x264", codec)) list.Add("dda-sys-x264");
         }
-        if (caps.HasGdigrab && caps.HasX264) list.Add("gdi-x264");
+        if (caps.HasGdigrab && caps.HasEncoder("x264", codec)) list.Add("gdi-x264");
 
         var wanted = preference switch
         {
@@ -53,7 +53,7 @@ public static class PipelineBuilder
         return list.Where(id => id.EndsWith(wanted)).Concat(list.Where(id => !id.EndsWith(wanted))).ToList();
     }
 
-    public static string BuildArgs(string id, MonitorInfo? monitor, int fps, int bitrateMbps, IntPtr window = default)
+    public static string BuildArgs(string id, VideoCodec codec, MonitorInfo? monitor, int fps, int bitrateMbps, IntPtr window = default)
     {
         var parts = id.Split('-');
         var encoder = parts[^1];
@@ -78,14 +78,18 @@ public static class PipelineBuilder
 
         var encoderArgs = encoder switch
         {
-            "nvenc" => "-c:v h264_nvenc -preset p4 -tune ll -rc cbr -bf 0 -delay 0",
-            "amf" => "-c:v h264_amf -usage lowlatency -quality speed -rc cbr",
-            "qsv" => "-c:v h264_qsv -preset veryfast -async_depth 1",
-            _ => "-c:v libx264 -preset ultrafast -tune zerolatency",
+            "nvenc" => $"-c:v {Prefix(codec)}_nvenc -preset p4 -tune ll -rc cbr -bf 0 -delay 0",
+            "amf" => $"-c:v {Prefix(codec)}_amf -usage lowlatency -quality speed -rc cbr",
+            "qsv" => $"-c:v {Prefix(codec)}_qsv -preset veryfast -async_depth 1",
+            _ => $"-c:v {CpuEncoder(codec)} -preset ultrafast -tune zerolatency",
         };
-        
+
         return $"{input} {encoderArgs} -g {fps} -b:v {bitrateMbps}M -maxrate {bitrateMbps}M -bufsize {bitrateMbps * 2}M";
     }
+
+    static string Prefix(VideoCodec codec) => codec == VideoCodec.Hevc ? "hevc" : "h264";
+
+    static string CpuEncoder(VideoCodec codec) => codec == VideoCodec.Hevc ? "libx265" : "libx264";
 
     public static string PreviewInput(MonitorInfo monitor, IntPtr window, bool ddagrab, int fps, Size size, string filter) =>
         window != IntPtr.Zero || ddagrab
@@ -106,25 +110,30 @@ public static class PipelineBuilder
         return $"-f gdigrab -framerate {fps} -draw_mouse 1 {area}-i desktop -vf \"{filter}\"";
     }
 
-    public static string FileEncoderArgs(string? pipelineId, int bitrateMbps)
+    public static string FileEncoderArgs(string? pipelineId, VideoCodec codec, int bitrateMbps)
     {
         var rate = $"-b:v {bitrateMbps}M -maxrate {bitrateMbps * 2}M -bufsize {bitrateMbps * 2}M";
         return pipelineId?.Split('-')[^1] switch
         {
-            "nvenc" => $"-c:v h264_nvenc -preset p5 {rate}",
-            "amf" => $"-c:v h264_amf -quality quality {rate}",
-            "qsv" => $"-vf format=nv12 -c:v h264_qsv -preset medium {rate}",
-            _ => "-c:v libx264 -preset veryfast -crf 20",
+            "nvenc" => $"-c:v {Prefix(codec)}_nvenc -preset p5 {rate}",
+            "amf" => $"-c:v {Prefix(codec)}_amf -quality quality {rate}",
+            "qsv" => $"-vf format=nv12 -c:v {Prefix(codec)}_qsv -preset medium {rate}",
+            _ => codec == VideoCodec.Hevc ? "-c:v libx265 -preset fast -crf 24" : "-c:v libx264 -preset veryfast -crf 20",
         };
     }
 
-    public static string Describe(string id, MonitorInfo? monitor, GpuSnapshot gpus)
+    public static string Describe(string id, VideoCodec codec, MonitorInfo? monitor, GpuSnapshot gpus)
     {
         var parts = id.Split('-');
         var encoder = parts[^1];
-        if (encoder == "x264") return parts[0] == "gdi" ? T("CPU (x264) con captura GDI", "CPU (x264) with GDI capture") : "CPU (x264)";
+        if (encoder == "x264")
+        {
+            var cpu = codec == VideoCodec.Hevc ? "CPU (x265)" : "CPU (x264)";
+            return parts[0] == "gdi" ? T($"{cpu} con captura GDI", $"{cpu} with GDI capture") : cpu;
+        }
         var vendor = VendorEncoder.First(kv => kv.Value == encoder).Key;
         var name = encoder switch { "nvenc" => "NVENC", "amf" => "AMF", _ => "Quick Sync" };
+        if (codec == VideoCodec.Hevc) name += " HEVC";
         if (parts[1] == "zc") return T($"{name} en {monitor?.Adapter.Name} (zero-copy)", $"{name} on {monitor?.Adapter.Name} (zero-copy)");
         var gpu = gpus.Adapters.FirstOrDefault(a => a.Vendor == vendor)?.Name ?? vendor.ToString();
         return T($"{name} en {gpu} (vía memoria)", $"{name} on {gpu} (via system memory)");
@@ -135,32 +144,38 @@ public static class PipelineBuilder
     {
         var gpus = GpuInfo.Enumerate();
         var monitor = gpus.FindMonitor(settings.MonitorDeviceName);
-        var fingerprint = Fingerprint(gpus, monitor, caps, settings.Encoder, ffmpeg);
+        var fingerprint = Fingerprint(gpus, monitor, caps, settings.Encoder, settings.Codec, ffmpeg);
 
         if (!force && settings.CachedPipelineId != null && settings.PipelineFingerprint == fingerprint)
-            return Make(settings.CachedPipelineId);
+            return Make(settings.CachedPipelineId, settings.CachedPipelineCodec ?? VideoCodec.H264);
 
         var report = new StringBuilder();
         AppendHeader(report, ffmpeg, caps, gpus, monitor);
         ResolvedPipeline? result = null;
-        foreach (var id in Candidates(monitor, gpus, caps, settings.Encoder))
+        VideoCodec[] codecs = settings.Codec == VideoCodec.Hevc ? [VideoCodec.Hevc, VideoCodec.H264] : [VideoCodec.H264];
+        foreach (var codec in codecs)
         {
-            progress?.Report(T($"Probando {Describe(id, monitor, gpus)}…", $"Testing {Describe(id, monitor, gpus)}…"));
-            var args = BuildArgs(id, monitor, settings.Fps, settings.BitrateMbps);
-            var (code, output) = await TestAsync(ffmpeg, args);
-            AppendResult(report, id, args, code, output);
-            if (code != 0) continue;
-            settings.CachedPipelineId = id;
-            settings.PipelineFingerprint = fingerprint;
-            result = Make(id);
-            break;
+            foreach (var id in Candidates(monitor, gpus, caps, settings.Encoder, codec))
+            {
+                progress?.Report(T($"Probando {Describe(id, codec, monitor, gpus)}…", $"Testing {Describe(id, codec, monitor, gpus)}…"));
+                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.BitrateMbps);
+                var (code, output) = await TestAsync(ffmpeg, args);
+                AppendResult(report, id, args, code, output);
+                if (code != 0) continue;
+                settings.CachedPipelineId = id;
+                settings.CachedPipelineCodec = codec;
+                settings.PipelineFingerprint = fingerprint;
+                result = Make(id, codec);
+                break;
+            }
+            if (result != null) break;
         }
         WriteProbeLog(report);
-        Log.Write(result != null ? $"Pipeline elegido: {result.Id} ({result.Description})" : "Ningún pipeline funcionó; ver probe.log");
+        Log.Write(result != null ? $"Pipeline elegido: {result.Id} {result.Codec} ({result.Description})" : "Ningún pipeline funcionó; ver probe.log");
         return result;
 
-        ResolvedPipeline Make(string id) =>
-            new(id, Describe(id, monitor, gpus), monitor);
+        ResolvedPipeline Make(string id, VideoCodec codec) =>
+            new(id, codec, Describe(id, codec, monitor, gpus), monitor);
     }
 
     public static async Task<int> RunDiagnosticsAsync(TextWriter output)
@@ -180,14 +195,17 @@ public static class PipelineBuilder
         AppendHeader(report, ffmpeg, caps, gpus, monitor);
         output.Write(report);
         int ok = 0;
-        foreach (var id in Candidates(monitor, gpus, caps, EncoderPreference.Auto))
+        foreach (var codec in Enum.GetValues<VideoCodec>())
         {
-            var args = BuildArgs(id, monitor, settings.Fps, settings.BitrateMbps);
-            var (code, log) = await TestAsync(ffmpeg, args);
-            AppendResult(report, id, args, code, log);
-            output.WriteLine($"  {(code == 0 ? "OK   " : "FALLA")} {id,-14} {Describe(id, monitor, gpus)}");
-            if (code == 0) ok++;
-            else output.WriteLine($"        {log.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim()}");
+            foreach (var id in Candidates(monitor, gpus, caps, EncoderPreference.Auto, codec))
+            {
+                var args = BuildArgs(id, codec, monitor, settings.Fps, settings.BitrateMbps);
+                var (code, log) = await TestAsync(ffmpeg, args);
+                AppendResult(report, $"{id} {codec}", args, code, log);
+                output.WriteLine($"  {(code == 0 ? "OK   " : "FALLA")} {id,-14} {codec,-5} {Describe(id, codec, monitor, gpus)}");
+                if (code == 0) ok++;
+                else output.WriteLine($"        {log.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim()}");
+            }
         }
         var path = WriteProbeLog(report);
         output.WriteLine($"{ok} pipeline(s) funcionan. Log completo: {path}");
@@ -197,9 +215,9 @@ public static class PipelineBuilder
     static Task<(int ExitCode, string Output)> TestAsync(string ffmpeg, string args) =>
         FfmpegProcess.RunAsync(ffmpeg, $"-hide_banner -loglevel error -nostdin {args} -t 2 -f null -", TimeSpan.FromSeconds(20));
 
-    static string Fingerprint(GpuSnapshot gpus, MonitorInfo? monitor, FfmpegCapabilities caps, EncoderPreference preference, string ffmpeg) =>
+    static string Fingerprint(GpuSnapshot gpus, MonitorInfo? monitor, FfmpegCapabilities caps, EncoderPreference preference, VideoCodec codec, string ffmpeg) =>
         string.Join(";", gpus.Adapters.Select(a => $"{a.Index}:{a.VendorId:X4}:{a.DeviceId:X4}")) +
-        $"|{monitor?.DeviceName}@{monitor?.Adapter.Index}:{monitor?.OutputIndex}|{caps.Version}|{preference}|{ffmpeg}";
+        $"|{monitor?.DeviceName}@{monitor?.Adapter.Index}:{monitor?.OutputIndex}|{caps.Version}|{preference}|{codec}|{ffmpeg}";
 
     static void AppendHeader(StringBuilder sb, string ffmpeg, FfmpegCapabilities caps, GpuSnapshot gpus, MonitorInfo? monitor)
     {
@@ -207,6 +225,7 @@ public static class PipelineBuilder
         sb.AppendLine($"ffmpeg: {ffmpeg}");
         sb.AppendLine($"  {caps.Version}");
         sb.AppendLine($"  ddagrab={caps.HasDdagrab} gdigrab={caps.HasGdigrab} nvenc={caps.HasNvenc} amf={caps.HasAmf} qsv={caps.HasQsv} x264={caps.HasX264} gfxcapture={caps.HasGfxcapture}");
+        sb.AppendLine($"  hevc_nvenc={caps.HasHevcNvenc} hevc_amf={caps.HasHevcAmf} hevc_qsv={caps.HasHevcQsv} x265={caps.HasX265}");
         sb.AppendLine("GPUs:");
         foreach (var a in gpus.Adapters)
             sb.AppendLine($"  [{a.Index}] {a.Name} ({a.Vendor}, VEN_{a.VendorId:X4} DEV_{a.DeviceId:X4})");

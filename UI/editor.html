@@ -82,7 +82,7 @@
   const video = $("video");
   const timeline = $("timeline");
   const minimumLength = 0.1;
-  const frame = 1 / 60;
+  let frame = 1 / 60;
   let duration = 0;
   let start = 0;
   let end = 0;
@@ -229,6 +229,7 @@
   chrome.webview.addEventListener("message", event => {
     const message = event.data;
     if (message.type === "load") {
+      if (message.fps > 0) frame = 1 / message.fps;
       setAudioAvailable(message.hasAudio);
       load(message.url);
       return;

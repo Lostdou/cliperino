@@ -38,7 +38,7 @@ sealed class TrayApp : ApplicationContext
     Version? notifiedVersion;
     bool updating;
     SettingsForm? settingsForm;
-    bool starting, saving, retriedAfterFailure;
+    bool starting, saving, retriedAfterFailure, warnedNoHevc;
     Action? balloonClick;
 
     bool IsRunning => video != null;
@@ -157,6 +157,11 @@ sealed class TrayApp : ApplicationContext
             }
             settings.Save(); // persiste la cache del pipeline
             pipeline = resolved;
+            if (current.Codec == VideoCodec.Hevc && resolved.Codec != VideoCodec.Hevc && !warnedNoHevc)
+            {
+                warnedNoHevc = true;
+                Notify(T("Tu placa no puede grabar en HEVC, así que se graba en H.264.", "Your graphics card can't record HEVC, so it records H.264 instead."), ToolTipIcon.Warning);
+            }
             var window = captureWindow = FindGameWindow();
 
             // wasapi da problemas si se inicializa en el hilo sta de la ui
@@ -167,7 +172,7 @@ sealed class TrayApp : ApplicationContext
                 if (current.CaptureMicrophone) micAudio = new AudioRecorder(DataFlow.Capture, current.MicrophoneDeviceId, bufferSeconds);
             });
 
-            var args = PipelineBuilder.BuildArgs(resolved.Id, resolved.Monitor, current.Fps, current.BitrateMbps, window?.Handle ?? IntPtr.Zero);
+            var args = PipelineBuilder.BuildArgs(resolved.Id, resolved.Codec, resolved.Monitor, current.Fps, current.BitrateMbps, window?.Handle ?? IntPtr.Zero);
             video = new VideoBuffer(path, args, current.ReplaySeconds);
             video.Failed += OnVideoFailed;
             video.Start();
@@ -300,7 +305,8 @@ sealed class TrayApp : ApplicationContext
             var game = s.FolderPerGame ? captureWindow ?? GameWindow.Find(s.GameExecutables) : null;
             if (game != null && GameWindow.FolderName(game.Executable, s.AliasOf(game.Executable)) is { } folder) s.OutputFolder = Path.Combine(s.OutputFolder, folder);
             var (sys, mic) = (systemAudio?.Ring, micAudio?.Ring);
-            var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s));
+            var codec = pipeline?.Codec ?? VideoCodec.H264;
+            var clip = await Task.Run(() => ClipSaver.SaveAsync(path, v, sys, mic, s, codec));
             Feedback($"{T("Clip guardado", "Clip saved")} · {FormatDuration((int)Math.Round(clip.Duration.TotalSeconds))}", null, () =>
             {
                 SystemSounds.Asterisk.Play();
@@ -337,6 +343,7 @@ sealed class TrayApp : ApplicationContext
             bool restart = IsRunning && (form.ForceRedetect || updated.CaptureChanged(settings));
             if (form.ForceRedetect) updated.CachedPipelineId = null;
             failedWindow = IntPtr.Zero;
+            warnedNoHevc = false;
             settings = updated;
             settings.Save();
             settings.ApplyStartWithWindows();
@@ -460,7 +467,7 @@ sealed class TrayApp : ApplicationContext
     void OpenEditor(string clip)
     {
         if (ffmpeg == null || !File.Exists(clip)) return;
-        new EditorForm(ffmpeg, clip, PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, settings.BitrateMbps)).Show();
+        new EditorForm(ffmpeg, clip, codec => PipelineBuilder.FileEncoderArgs(settings.CachedPipelineId, codec, settings.BitrateMbps)).Show();
     }
 
     PreviewSource PreviewFor(CaptureChoice choice)
