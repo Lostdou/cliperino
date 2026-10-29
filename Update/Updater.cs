@@ -2,11 +2,12 @@ using static Cliperino.Core.Lang;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Cliperino.Core;
 
 namespace Cliperino.Update;
 
-public sealed record UpdateInfo(Version Version, string Tag, string DownloadUrl, string PageUrl);
+public sealed record UpdateInfo(Version Version, string Tag, string DownloadUrl, string PageUrl, string? Notes);
 
 public static class Updater
 {
@@ -18,9 +19,13 @@ public static class Updater
     static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(20);
     static readonly TimeSpan PreviousInstanceTimeout = TimeSpan.FromSeconds(20);
 
+    static readonly Regex LanguageMarker = new(@"^[ \t]*(EN|ES)[ \t]*:", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+    static readonly Regex Bullet = new(@"^[ \t]*[-*][ \t]+", RegexOptions.Multiline);
+
     sealed record Release(
         [property: JsonPropertyName("tag_name")] string TagName,
         [property: JsonPropertyName("html_url")] string HtmlUrl,
+        [property: JsonPropertyName("body")] string? Body,
         [property: JsonPropertyName("assets")] List<Asset>? Assets);
 
     sealed record Asset(
@@ -52,7 +57,27 @@ public static class Updater
         var release = await JsonSerializer.DeserializeAsync<Release>(stream);
         if (release == null || !TryParseTag(release.TagName, out var version) || version <= current) return null;
         var asset = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, AssetName, StringComparison.OrdinalIgnoreCase));
-        return asset == null ? null : new UpdateInfo(version, release.TagName, asset.DownloadUrl, release.HtmlUrl);
+        return asset == null ? null : new UpdateInfo(version, release.TagName, asset.DownloadUrl, release.HtmlUrl, NotesFor(release.Body, English));
+    }
+
+    public static string? NotesFor(string? body, bool english)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        var text = body.Replace("\r\n", "\n");
+        var markers = LanguageMarker.Matches(text);
+        if (markers.Count > 0)
+        {
+            var sections = markers
+                .Select((marker, i) => (
+                    Language: marker.Groups[1].Value.ToUpperInvariant(),
+                    Text: text[(marker.Index + marker.Length)..(i + 1 < markers.Count ? markers[i + 1].Index : text.Length)]))
+                .Where(s => s.Text.Trim().Length > 0)
+                .ToList();
+            var wanted = english ? "EN" : "ES";
+            text = sections.FirstOrDefault(s => s.Language == wanted).Text ?? sections.FirstOrDefault().Text ?? "";
+        }
+        text = Bullet.Replace(text.Replace("**", ""), "• ").Trim();
+        return text.Length > 0 ? text : null;
     }
 
     public static async Task InstallAndRestartAsync(

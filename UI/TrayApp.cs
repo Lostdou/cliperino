@@ -420,8 +420,9 @@ sealed class TrayApp : ApplicationContext
             Notify(T("Esperá a que termine de guardarse el clip.", "Wait for the clip to finish saving."), ToolTipIcon.Info);
             return;
         }
+        var notes = update.Notes == null ? "" : $"\n\n{T("Novedades:", "What's new:")}\n{Shorten(update.Notes, 1200)}";
         var answer = MessageBox.Show(
-            T($"¿Actualizar Cliperino a la versión {update.Tag}?\n\nCliperino se reinicia y se pierde lo grabado que no hayas guardado como clip.", $"Update Cliperino to version {update.Tag}?\n\nCliperino will restart and anything you haven't saved as a clip will be lost."),
+            T($"¿Actualizar Cliperino a la versión {update.Tag}?{notes}\n\nCliperino se reinicia y se pierde lo grabado que no hayas guardado como clip.", $"Update Cliperino to version {update.Tag}?{notes}\n\nCliperino will restart and anything you haven't saved as a clip will be lost."),
             "Cliperino", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes) return;
 
@@ -548,6 +549,8 @@ sealed class TrayApp : ApplicationContext
 
     public static string FormatDuration(int seconds) =>
         seconds < 60 ? $"{seconds} s" : $"{seconds / 60}:{seconds % 60:00} min";
+
+    static string Shorten(string text, int max) => text.Length <= max ? text : text[..max].TrimEnd() + "…";
 
     static Icon MakeIcon(Color color)
     {

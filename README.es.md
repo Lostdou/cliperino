@@ -33,7 +33,7 @@ Genera `publish\Cliperino.exe`: un único ejecutable de unos 50 MB que incluye e
 - **Ajustes** tiene tres pestañas:
   - **Captura:** vista previa en vivo de lo que se graba, duración, modo, juegos (con su nombre), monitor, FPS, audio, micrófono, atajo, aviso, carpeta y si cada juego va en su carpeta.
   - **Avanzado:** codificador, formato (H.264 o HEVC), calidad y desfase de audio. La calidad puede ser Baja, Equilibrada o Alta, y el bitrate se calcula solo según el monitor, los FPS y el formato; con Personalizada se pone a mano. Si la placa no puede grabar en HEVC, Cliperino usa H.264 y avisa.
-  - **Extras:** inicio con Windows, actualizaciones, idioma (español o inglés, por defecto el de Windows), versión y enlaces al proyecto.
+  - **Extras:** inicio con Windows, actualizaciones, idioma (español o inglés, por defecto el de Windows), versión y enlaces al proyecto. Cuando sale una versión nueva, Cliperino muestra sus novedades antes de actualizar: toma el texto de la release de GitHub y, si tiene secciones `EN:` y `ES:`, muestra la del idioma de la app.
 - La vista previa de la pestaña Captura solo corre mientras esa pestaña está visible. Si cambiás el monitor, el modo o los juegos, muestra cómo va a quedar antes de guardar, sin cortar la grabación.
 
 ## Editor de clips
